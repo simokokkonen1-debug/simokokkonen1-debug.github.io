@@ -624,7 +624,8 @@
             victoryAudioRef.current = audio;
 
             return () => {
-                // Ei pysäytetä ääntä unmountissa, jotta voittomusiikki ehtii soida loppuun.
+                if (!victoryAudioRef.current) return;
+                victoryAudioRef.current.pause();
                 victoryAudioRef.current = null;
             };
         }, []);
@@ -742,10 +743,7 @@
 
             if (newLegs[winnerOfLeg] >= LEGS_TO_WIN) {
                 playVictoryMusic();
-                setIsFinishingMatch(true);
-                setTimeout(() => {
-                    onSave(match.id, newLegs[0], newLegs[1], updatedHistory);
-                }, 1400);
+                onSave(match.id, newLegs[0], newLegs[1], updatedHistory);
             } else {
                 setLegs(newLegs);
                 setHistory(updatedHistory);
