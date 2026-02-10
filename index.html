@@ -147,10 +147,11 @@
 <div id="root"></div>
 
 <script type="text/babel">
-    const { useState, useEffect, useMemo } = React;
+    const { useState, useEffect, useMemo, useRef } = React;
 
     const STARTING_SCORE = 301;
     const LEGS_TO_WIN = 3;
+    const VICTORY_MUSIC_SRC = 'assets/victory-music.mp3';
 
     const getStandings = (players, matches, groupPlayersIndices, groupLabel) => {
         const groupMatches = matches.filter((m) => m.group === groupLabel);
@@ -582,6 +583,7 @@
     }
 
     function DartsCalculator({ match, players, onClose, onSave }) {
+        const victoryAudioRef = useRef(null);
         const [p1Score, setP1Score] = useState(STARTING_SCORE);
         const [p2Score, setP2Score] = useState(STARTING_SCORE);
         const [legs, setLegs] = useState([match.s1, match.s2]);
@@ -614,6 +616,28 @@
 
         const currentPlayerIdx = turn === 0 ? match.p1 : match.p2;
         const currentScore = turn === 0 ? p1Score : p2Score;
+
+        useEffect(() => {
+            const audio = new Audio(VICTORY_MUSIC_SRC);
+            audio.preload = 'auto';
+            victoryAudioRef.current = audio;
+
+            return () => {
+                if (!victoryAudioRef.current) return;
+                victoryAudioRef.current.pause();
+                victoryAudioRef.current = null;
+            };
+        }, []);
+
+        const playVictoryMusic = () => {
+            const audio = victoryAudioRef.current;
+            if (!audio) return;
+
+            audio.currentTime = 0;
+            audio.play().catch(() => {
+                // Musiikkitiedosto saattaa puuttua tai selaimen autoplay-rajoitukset estävät toiston.
+            });
+        };
 
         const pushStep = (snapshot) => {
             setStepHistory((prev) => [...prev, snapshot]);
@@ -716,6 +740,7 @@
             newLegs[winnerOfLeg]++;
 
             if (newLegs[winnerOfLeg] >= LEGS_TO_WIN) {
+                playVictoryMusic();
                 onSave(match.id, newLegs[0], newLegs[1], updatedHistory);
             } else {
                 setLegs(newLegs);
