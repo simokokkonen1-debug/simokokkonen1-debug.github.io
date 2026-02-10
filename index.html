@@ -16,23 +16,35 @@
 
     <style>
         :root {
-            --bg-dark: #020617;
-            --accent-yellow: #eab308;
-            --card-bg: rgba(15, 23, 42, 0.9);
+            --bg-dark: #032b24;
+            --accent-yellow: #e7e359;
+            --accent-green: #35a853;
+            --card-bg: rgba(4, 42, 34, 0.9);
         }
 
         body {
             font-family: 'Oswald', sans-serif;
-            background-color: var(--bg-dark);
+            background: radial-gradient(circle at top, #0f624f 0%, var(--bg-dark) 50%, #02140f 100%);
             color: #f8fafc;
             min-height: 100vh;
+        }
+
+        .brand-logo {
+            width: 190px;
+            max-width: 100%;
+            filter: drop-shadow(0 10px 20px rgba(0, 0, 0, 0.45));
+        }
+
+        .logo-frame {
+            border: 1px solid rgba(231, 227, 89, 0.35);
+            background: linear-gradient(180deg, rgba(53, 168, 83, 0.12) 0%, rgba(0, 0, 0, 0) 100%);
         }
 
         .match-card {
             transition: all 0.2s ease;
             backdrop-filter: blur(8px);
             background-color: var(--card-bg);
-            border: 1px solid rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(231, 227, 89, 0.12);
         }
 
         .dart-btn {
@@ -177,6 +189,27 @@
         played: false,
         history: [],
     });
+
+    function BrandLogo({ compact = false }) {
+        const [logoFailed, setLogoFailed] = useState(false);
+
+        if (logoFailed) {
+            return (
+                <div className={`uppercase font-black italic ${compact ? 'text-lg' : 'text-3xl'} tracking-tight`}>
+                    Teepee <span className="text-yellow-300">Darts Cup</span>
+                </div>
+            );
+        }
+
+        return (
+            <img
+                src="assets/teepee-darts-cup-logo.png"
+                alt="Teepee Darts Cup virallinen logo"
+                className={`brand-logo ${compact ? 'w-28' : ''}`}
+                onError={() => setLogoFailed(true)}
+            />
+        );
+    }
 
     function App() {
         const [view, setView] = useState('setup');
@@ -327,11 +360,11 @@
         if (view === 'setup') {
             return (
                 <div className="flex flex-col items-center justify-center min-h-screen p-6">
-                    <div className="text-center mb-8">
-                        <h1 className="text-6xl font-black uppercase italic tracking-tighter leading-none">
-                            TEEPEE <span className="text-yellow-500 block text-4xl mt-2">DARTS CUP</span>
-                        </h1>
-                        <p className="text-slate-500 font-bold uppercase tracking-widest mt-4">Mökkiturnaus 27-28.2</p>
+                    <div className="text-center mb-8 logo-frame rounded-3xl px-8 py-6">
+                        <div className="flex justify-center mb-4">
+                            <BrandLogo />
+                        </div>
+                        <p className="text-emerald-100/80 font-bold uppercase tracking-widest mt-2">Mökkiturnaus 27-28.2</p>
                     </div>
                     <div className="bg-slate-900/50 p-8 rounded-3xl border border-white/10 w-full max-w-2xl shadow-2xl">
                         <div className="flex justify-between items-center mb-6">
@@ -382,10 +415,13 @@
 
         return (
             <div className="min-h-screen flex flex-col">
-                <header className="bg-slate-950 p-6 border-b border-white/5 flex justify-between items-center sticky top-0 z-40">
-                    <div>
-                        <h2 className="font-black uppercase italic text-2xl leading-none">TEEPEE <span className="text-yellow-500">DARTS</span></h2>
-                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Turnaushallinta - <span className="text-slate-300">Mökkiturnaus 27-28.2</span></p>
+                <header className="bg-emerald-950/90 p-6 border-b border-yellow-200/15 flex justify-between items-center sticky top-0 z-40 backdrop-blur">
+                    <div className="flex items-center gap-4">
+                        <div className="logo-frame rounded-2xl p-2"><BrandLogo compact /></div>
+                        <div>
+                            <h2 className="font-black uppercase italic text-2xl leading-none">TEEPEE <span className="text-yellow-300">DARTS</span></h2>
+                            <p className="text-[10px] font-bold text-emerald-200/70 uppercase tracking-widest">Turnaushallinta - <span className="text-emerald-50">Mökkiturnaus 27-28.2</span></p>
+                        </div>
                     </div>
                     <div className="flex gap-4">
                         {[
@@ -394,7 +430,7 @@
                             { id: 'bracket', label: 'Kaavio' },
                             { id: 'stats', label: 'Tilastot' },
                         ].map((t) => (
-                            <button key={t.id} onClick={() => setTab(t.id)} className={`uppercase font-black text-xs transition-all ${tab === t.id ? 'text-yellow-500 border-b-2 border-yellow-500' : 'text-slate-500 hover:text-white'}`}>
+                            <button key={t.id} onClick={() => setTab(t.id)} className={`uppercase font-black text-xs transition-all ${tab === t.id ? 'text-yellow-300 border-b-2 border-yellow-300' : 'text-emerald-200/70 hover:text-emerald-50'}`}>
                                 {t.label}
                             </button>
                         ))}
