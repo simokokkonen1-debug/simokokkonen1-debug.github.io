@@ -1,0 +1,820 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teepee Darts Cup - Mökkiturnaus</title>
+
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@300;400;700&family=Roboto+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+    <style>
+        :root {
+            --bg-dark: #032b24;
+            --accent-yellow: #e7e359;
+            --accent-green: #35a853;
+            --card-bg: rgba(4, 42, 34, 0.9);
+        }
+
+        body {
+            font-family: 'Oswald', sans-serif;
+            background: radial-gradient(circle at top, #0f624f 0%, var(--bg-dark) 50%, #02140f 100%);
+            color: #f8fafc;
+            min-height: 100vh;
+        }
+
+        .brand-logo {
+            width: 190px;
+            max-width: 100%;
+            filter: drop-shadow(0 10px 20px rgba(0, 0, 0, 0.45));
+        }
+
+        .logo-frame {
+            border: 1px solid rgba(231, 227, 89, 0.35);
+            background: linear-gradient(180deg, rgba(53, 168, 83, 0.12) 0%, rgba(0, 0, 0, 0) 100%);
+        }
+
+        .match-card {
+            transition: all 0.2s ease;
+            backdrop-filter: blur(8px);
+            background-color: var(--card-bg);
+            border: 1px solid rgba(231, 227, 89, 0.12);
+        }
+
+        .dart-btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            font-weight: bold;
+            border-radius: 12px;
+            height: 52px;
+            user-select: none;
+            transition: all 0.1s;
+        }
+
+        .dart-btn:active {
+            background: var(--accent-yellow);
+            color: black;
+            transform: scale(0.95);
+        }
+
+        .multiplier-btn {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+        }
+
+        .multiplier-btn.active {
+            background: var(--accent-yellow);
+            color: black;
+            border-color: white;
+        }
+
+        .dart-slot {
+            width: 100px;
+            height: 120px;
+            border-radius: 20px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 2px solid rgba(255, 255, 255, 0.08);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-family: 'Roboto Mono', monospace;
+        }
+
+        .dart-slot.active {
+            border-color: var(--accent-yellow);
+            background: rgba(234, 179, 8, 0.15);
+        }
+
+        .bracket-container {
+            display: flex;
+            gap: 2rem;
+            padding: 1rem;
+            overflow-x: auto;
+            min-height: 450px;
+            align-items: center;
+        }
+
+        .bracket-round {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-around;
+            gap: 2rem;
+            min-width: 240px;
+        }
+
+        .bracket-connector {
+            position: relative;
+        }
+
+        .bracket-connector::after {
+            content: '→';
+            position: absolute;
+            right: -1.5rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--accent-yellow);
+            font-weight: bold;
+            opacity: 0.5;
+        }
+
+        .bust-overlay {
+            animation: fadeInOut 1s forwards;
+        }
+
+        @keyframes fadeInOut {
+            0% { opacity: 0; transform: scale(0.5); }
+            20% { opacity: 1; transform: scale(1.1); }
+            80% { opacity: 1; transform: scale(1); }
+            100% { opacity: 0; transform: scale(1.2); }
+        }
+    </style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel">
+    const { useState, useEffect, useMemo } = React;
+
+    const STARTING_SCORE = 301;
+    const LEGS_TO_WIN = 3;
+
+    const getStandings = (players, matches, groupPlayersIndices, groupLabel) => {
+        const groupMatches = matches.filter((m) => m.group === groupLabel);
+        const standings = groupPlayersIndices.map((idx) => {
+            const name = players[idx];
+            let played = 0;
+            let wins = 0;
+            let legsWon = 0;
+            let legsLost = 0;
+
+            groupMatches.forEach((m) => {
+                if (m.played && (m.p1 === idx || m.p2 === idx)) {
+                    played++;
+                    if (m.p1 === idx) {
+                        legsWon += m.s1;
+                        legsLost += m.s2;
+                        if (m.s1 > m.s2) wins++;
+                    } else {
+                        legsWon += m.s2;
+                        legsLost += m.s1;
+                        if (m.s2 > m.s1) wins++;
+                    }
+                }
+            });
+
+            return { name, wins, played, legsDiff: legsWon - legsLost, idx };
+        });
+
+        return standings.sort((a, b) => b.wins - a.wins || b.legsDiff - a.legsDiff);
+    };
+
+    const createMatch = (base) => ({
+        ...base,
+        s1: 0,
+        s2: 0,
+        played: false,
+        history: [],
+    });
+
+    function BrandLogo({ compact = false }) {
+        const [logoFailed, setLogoFailed] = useState(false);
+
+        if (logoFailed) {
+            return (
+                <div className={`uppercase font-black italic ${compact ? 'text-lg' : 'text-3xl'} tracking-tight`}>
+                    Teepee <span className="text-yellow-300">Darts Cup</span>
+                </div>
+            );
+        }
+
+        return (
+            <img
+                src="assets/teepee-darts-cup-logo.png"
+                alt="Teepee Darts Cup virallinen logo"
+                className={`brand-logo ${compact ? 'w-28' : ''}`}
+                onError={() => setLogoFailed(true)}
+            />
+        );
+    }
+
+    function App() {
+        const [view, setView] = useState('setup');
+        const [tab, setTab] = useState('schedule');
+        const [players, setPlayers] = useState([
+            'Pelaaja 1',
+            'Pelaaja 2',
+            'Pelaaja 3',
+            'Pelaaja 4',
+            'Pelaaja 5',
+            'Pelaaja 6',
+            'Pelaaja 7',
+            'Pelaaja 8',
+        ]);
+        const [groupA, setGroupA] = useState([0, 1, 2, 3]);
+        const [groupB, setGroupB] = useState([4, 5, 6, 7]);
+        const [groupMatches, setGroupMatches] = useState([]);
+        const [bracketMatches, setBracketMatches] = useState([]);
+        const [activeMatch, setActiveMatch] = useState(null);
+
+        const shuffleGroups = () => {
+            const shuffledIndices = [...Array(players.length).keys()].sort(() => Math.random() - 0.5);
+            setGroupA(shuffledIndices.slice(0, 4));
+            setGroupB(shuffledIndices.slice(4, 8));
+            confetti({ particleCount: 50, spread: 60, origin: { y: 0.8 } });
+        };
+
+        const startTournament = () => {
+            const createMatches = (group, label) => {
+                const m = [];
+                for (let i = 0; i < group.length; i++) {
+                    for (let j = i + 1; j < group.length; j++) {
+                        m.push(createMatch({ group: label, p1: group[i], p2: group[j] }));
+                    }
+                }
+                return m;
+            };
+
+            setGroupMatches(
+                [...createMatches(groupA, 'A'), ...createMatches(groupB, 'B')].map((m, i) => ({
+                    ...m,
+                    id: `m-${i}`,
+                }))
+            );
+
+            setBracketMatches([
+                createMatch({ id: 'wc1', round: 'WC', p1: null, p2: null, winner: null, label: 'Wild Card 1' }),
+                createMatch({ id: 'wc2', round: 'WC', p1: null, p2: null, winner: null, label: 'Wild Card 2' }),
+                createMatch({ id: 'sf1', round: 'SF', p1: null, p2: null, winner: null, label: 'Välierä 1' }),
+                createMatch({ id: 'sf2', round: 'SF', p1: null, p2: null, winner: null, label: 'Välierä 2' }),
+                createMatch({ id: 'f', round: 'F', p1: null, p2: null, winner: null, label: 'Finaali' }),
+            ]);
+            setView('tournament');
+        };
+
+        useEffect(() => {
+            if (view !== 'tournament') return;
+            const standingsA = getStandings(players, groupMatches, groupA, 'A');
+            const standingsB = getStandings(players, groupMatches, groupB, 'B');
+
+            setBracketMatches((prev) => {
+                const next = [...prev];
+
+                if (standingsA[0].played > 0) next[2].p1 = standingsA[0].idx;
+                if (standingsB[0].played > 0) next[3].p1 = standingsB[0].idx;
+
+                if (standingsA[1].played > 0 && standingsB[2].played > 0) {
+                    next[0].p1 = standingsA[1].idx;
+                    next[0].p2 = standingsB[2].idx;
+                }
+                if (standingsB[1].played > 0 && standingsA[2].played > 0) {
+                    next[1].p1 = standingsB[1].idx;
+                    next[1].p2 = standingsA[2].idx;
+                }
+                return next;
+            });
+        }, [groupMatches, view, players, groupA, groupB]);
+
+        const handleMatchEnd = (id, s1, s2, history) => {
+            if (id.startsWith('m-')) {
+                setGroupMatches((prev) => prev.map((m) => (m.id === id ? { ...m, s1, s2, played: true, history } : m)));
+            } else {
+                setBracketMatches((prev) => {
+                    const next = [...prev];
+                    const idx = next.findIndex((m) => m.id === id);
+                    const winner = s1 > s2 ? next[idx].p1 : next[idx].p2;
+                    next[idx] = { ...next[idx], s1, s2, winner, history, played: true };
+                    if (id === 'wc1') next[3].p2 = winner;
+                    if (id === 'wc2') next[2].p2 = winner;
+                    if (id === 'sf1') next[4].p1 = winner;
+                    if (id === 'sf2') next[4].p2 = winner;
+                    if (id === 'f' && winner !== null) confetti({ particleCount: 200, spread: 70, origin: { y: 0.6 } });
+                    return next;
+                });
+            }
+            setActiveMatch(null);
+        };
+
+        const playerStats = useMemo(() => {
+            const stats = players.map((name, idx) => ({
+                name,
+                idx,
+                totalScore: 0,
+                dartsCount: 0,
+                bestCheckout: 0,
+                bestTurn: 0,
+                score60plus: 0,
+                score100plus: 0,
+                score140plus: 0,
+                checkoutAttempts: 0,
+                checkoutHits: 0,
+            }));
+
+            [...groupMatches, ...bracketMatches].forEach((m) => {
+                if (!m.history) return;
+
+                m.history.forEach((turn) => {
+                    const p = stats.find((s) => s.idx === turn.player);
+                    if (!p) return;
+
+                    const turnSum = turn.darts.reduce((a, b) => a + (b || 0), 0);
+                    p.totalScore += turnSum;
+                    p.dartsCount += turn.darts.length;
+                    p.bestTurn = Math.max(p.bestTurn, turnSum);
+
+                    if (turnSum >= 140) p.score140plus++;
+                    else if (turnSum >= 100) p.score100plus++;
+                    else if (turnSum >= 60) p.score60plus++;
+
+                    if (turn.hadCheckoutChance) p.checkoutAttempts++;
+                    if (turn.isCheckout) {
+                        p.checkoutHits++;
+                        p.bestCheckout = Math.max(p.bestCheckout, turnSum);
+                    }
+                });
+            });
+
+            return stats
+                .filter((s) => s.dartsCount > 0)
+                .map((s) => ({
+                    ...s,
+                    avg: (s.totalScore / s.dartsCount) * 3,
+                    checkoutPct: s.checkoutAttempts > 0 ? (s.checkoutHits / s.checkoutAttempts) * 100 : 0,
+                }))
+                .sort((a, b) => b.avg - a.avg);
+        }, [groupMatches, bracketMatches, players]);
+
+        if (view === 'setup') {
+            return (
+                <div className="flex flex-col items-center justify-center min-h-screen p-6">
+                    <div className="text-center mb-8 logo-frame rounded-3xl px-8 py-6">
+                        <div className="flex justify-center mb-4">
+                            <BrandLogo />
+                        </div>
+                        <p className="text-emerald-100/80 font-bold uppercase tracking-widest mt-2">Mökkiturnaus 27-28.2</p>
+                    </div>
+                    <div className="bg-slate-900/50 p-8 rounded-3xl border border-white/10 w-full max-w-2xl shadow-2xl">
+                        <div className="flex justify-between items-center mb-6">
+                            <h3 className="uppercase font-black text-slate-400">Pelaajat</h3>
+                            <button onClick={shuffleGroups} className="text-xs bg-white/10 hover:bg-white/20 px-3 py-1 rounded-full font-bold transition-all">
+                                <i className="fas fa-random mr-2"></i>ARVO LOHKOT
+                            </button>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4 mb-8">
+                            <div className="space-y-2">
+                                <div className="text-[10px] font-bold text-yellow-500 uppercase ml-1">Lohko A</div>
+                                {groupA.map((idx, i) => (
+                                    <input
+                                        key={i}
+                                        className="w-full bg-black/40 border border-white/5 p-3 rounded-xl text-white font-bold focus:border-yellow-500 outline-none"
+                                        value={players[idx]}
+                                        onChange={(e) => {
+                                            const n = [...players];
+                                            n[idx] = e.target.value;
+                                            setPlayers(n);
+                                        }}
+                                    />
+                                ))}
+                            </div>
+                            <div className="space-y-2">
+                                <div className="text-[10px] font-bold text-yellow-500 uppercase ml-1">Lohko B</div>
+                                {groupB.map((idx, i) => (
+                                    <input
+                                        key={i}
+                                        className="w-full bg-black/40 border border-white/5 p-3 rounded-xl text-white font-bold focus:border-yellow-500 outline-none"
+                                        value={players[idx]}
+                                        onChange={(e) => {
+                                            const n = [...players];
+                                            n[idx] = e.target.value;
+                                            setPlayers(n);
+                                        }}
+                                    />
+                                ))}
+                            </div>
+                        </div>
+                        <button onClick={startTournament} className="w-full py-5 bg-yellow-500 hover:bg-yellow-400 text-black font-black uppercase rounded-2xl text-xl shadow-lg transition-all active:scale-95">
+                            Aloita Turnaus
+                        </button>
+                    </div>
+                </div>
+            );
+        }
+
+        return (
+            <div className="min-h-screen flex flex-col">
+                <header className="bg-emerald-950/90 p-6 border-b border-yellow-200/15 flex justify-between items-center sticky top-0 z-40 backdrop-blur">
+                    <div className="flex items-center gap-4">
+                        <div className="logo-frame rounded-2xl p-2"><BrandLogo compact /></div>
+                        <div>
+                            <h2 className="font-black uppercase italic text-2xl leading-none">TEEPEE <span className="text-yellow-300">DARTS</span></h2>
+                            <p className="text-[10px] font-bold text-emerald-200/70 uppercase tracking-widest">Turnaushallinta - <span className="text-emerald-50">Mökkiturnaus 27-28.2</span></p>
+                        </div>
+                    </div>
+                    <div className="flex gap-4">
+                        {[
+                            { id: 'schedule', label: 'Pelit' },
+                            { id: 'groups', label: 'Lohkot' },
+                            { id: 'bracket', label: 'Kaavio' },
+                            { id: 'stats', label: 'Tilastot' },
+                        ].map((t) => (
+                            <button key={t.id} onClick={() => setTab(t.id)} className={`uppercase font-black text-xs transition-all ${tab === t.id ? 'text-yellow-300 border-b-2 border-yellow-300' : 'text-emerald-200/70 hover:text-emerald-50'}`}>
+                                {t.label}
+                            </button>
+                        ))}
+                    </div>
+                </header>
+
+                <main className="p-6 max-w-5xl mx-auto w-full flex-1">
+                    {tab === 'schedule' && (
+                        <div className="grid md:grid-cols-2 gap-4">
+                            {groupMatches.map((m) => (
+                                <div key={m.id} onClick={() => setActiveMatch(m)} className="match-card p-5 rounded-2xl flex justify-between items-center cursor-pointer hover:border-yellow-500/30 group">
+                                    <div className="flex flex-col">
+                                        <span className="text-[10px] text-slate-500 font-bold mb-1 uppercase">Lohko {m.group}</span>
+                                        <span className="text-sm font-black uppercase group-hover:text-yellow-500 transition-colors">{players[m.p1]} vs {players[m.p2]}</span>
+                                    </div>
+                                    <div className="text-2xl font-mono font-black text-yellow-500 bg-black/40 px-4 py-2 rounded-xl">{m.played ? `${m.s1}-${m.s2}` : 'PELAA'}</div>
+                                </div>
+                            ))}
+                            <div className="col-span-full border-t border-white/10 my-4 pt-4">
+                                <h3 className="text-xs font-black uppercase text-slate-500 mb-4">Pudotuspelit</h3>
+                                <div className="grid md:grid-cols-2 gap-4">
+                                    {bracketMatches.map((m) => (
+                                        <div
+                                            key={m.id}
+                                            onClick={() => m.p1 !== null && m.p2 !== null && setActiveMatch(m)}
+                                            className={`match-card p-5 rounded-2xl flex justify-between items-center ${m.p1 !== null && m.p2 !== null ? 'cursor-pointer hover:border-yellow-500/30 group' : 'opacity-40 cursor-not-allowed'}`}
+                                        >
+                                            <div className="flex flex-col">
+                                                <span className="text-[10px] text-yellow-500 font-bold mb-1 uppercase">{m.label}</span>
+                                                <span className="text-sm font-black uppercase">{m.p1 !== null ? players[m.p1] : '???'} vs {m.p2 !== null ? players[m.p2] : '???'}</span>
+                                            </div>
+                                            <div className="text-2xl font-mono font-black text-yellow-500 bg-black/40 px-4 py-2 rounded-xl">{m.played ? `${m.s1}-${m.s2}` : 'PELAA'}</div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                    {tab === 'groups' && (
+                        <div className="grid md:grid-cols-2 gap-8">
+                            {[
+                                { label: 'A', indices: groupA },
+                                { label: 'B', indices: groupB },
+                            ].map((g) => (
+                                <div key={g.label} className="bg-slate-900/40 rounded-3xl p-6 border border-white/5">
+                                    <h3 className="text-xl font-black uppercase text-yellow-500 mb-4 italic">Lohko {g.label}</h3>
+                                    <table className="w-full text-left text-xs uppercase font-bold">
+                                        <thead className="text-slate-500 border-b border-white/10">
+                                        <tr>
+                                            <th className="pb-3">Pelaaja</th>
+                                            <th className="pb-3 text-center">V</th>
+                                            <th className="pb-3 text-center">+/-</th>
+                                        </tr>
+                                        </thead>
+                                        <tbody>
+                                        {getStandings(players, groupMatches, g.indices, g.label).map((s, i) => (
+                                            <tr key={i} className={`border-t border-white/5 ${i === 3 ? 'opacity-30' : ''}`}>
+                                                <td className="py-4 text-sm font-black">{s.name}</td>
+                                                <td className="py-4 text-center text-yellow-500 text-lg">{s.wins}</td>
+                                                <td className="py-4 text-center font-mono text-slate-400">{s.legsDiff > 0 ? `+${s.legsDiff}` : s.legsDiff}</td>
+                                            </tr>
+                                        ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                    {tab === 'bracket' && (
+                        <div className="bracket-container">
+                            <div className="bracket-round">
+                                <div className="text-[10px] font-black text-slate-600 uppercase text-center mb-2">Wild Cards</div>
+                                {[bracketMatches[0], bracketMatches[1]].map((m) => (
+                                    <div key={m.id} className="bracket-connector">
+                                        <MatchBox m={m} players={players} onClick={() => m.p1 !== null && m.p2 !== null && setActiveMatch(m)} />
+                                    </div>
+                                ))}
+                            </div>
+                            <div className="bracket-round">
+                                <div className="text-[10px] font-black text-slate-600 uppercase text-center mb-2">Välierät</div>
+                                {[bracketMatches[2], bracketMatches[3]].map((m) => (
+                                    <div key={m.id} className="bracket-connector">
+                                        <MatchBox m={m} players={players} onClick={() => m.p1 !== null && m.p2 !== null && setActiveMatch(m)} />
+                                    </div>
+                                ))}
+                            </div>
+                            <div className="bracket-round">
+                                <div className="text-[10px] font-black text-yellow-500 uppercase text-center mb-2">Finaali</div>
+                                <MatchBox m={bracketMatches[4]} players={players} onClick={() => bracketMatches[4].p1 !== null && bracketMatches[4].p2 !== null && setActiveMatch(bracketMatches[4])} isFinal />
+                            </div>
+                        </div>
+                    )}
+                    {tab === 'stats' && (
+                        <div className="bg-slate-900/40 rounded-3xl p-6 border border-white/5 overflow-x-auto">
+                            <h3 className="text-xl font-black uppercase text-yellow-500 mb-6 italic">Turnaustilastot</h3>
+                            <table className="w-full text-left text-[10px] uppercase font-bold">
+                                <thead className="text-slate-500 border-b border-white/10">
+                                <tr>
+                                    <th className="pb-3">Pelaaja</th>
+                                    <th className="pb-3 text-center">Avg (3t)</th>
+                                    <th className="pb-3 text-center">Paras vuoro</th>
+                                    <th className="pb-3 text-center">Paras checkout</th>
+                                    <th className="pb-3 text-center">Checkout %</th>
+                                    <th className="pb-3 text-center">60+</th>
+                                    <th className="pb-3 text-center">100+</th>
+                                    <th className="pb-3 text-center">140+</th>
+                                </tr>
+                                </thead>
+                                <tbody>
+                                {playerStats.map((s, i) => (
+                                    <tr key={i} className="border-t border-white/5">
+                                        <td className="py-4 text-sm font-black">{s.name}</td>
+                                        <td className="py-4 text-center text-yellow-500 text-lg">{s.avg.toFixed(1)}</td>
+                                        <td className="py-4 text-center text-white">{s.bestTurn || '-'}</td>
+                                        <td className="py-4 text-center text-white">{s.bestCheckout || '-'}</td>
+                                        <td className="py-4 text-center text-white">{s.checkoutAttempts ? `${s.checkoutPct.toFixed(1)}%` : '-'}</td>
+                                        <td className="py-4 text-center text-slate-400">{s.score60plus}</td>
+                                        <td className="py-4 text-center text-slate-400">{s.score100plus}</td>
+                                        <td className="py-4 text-center text-slate-400">{s.score140plus}</td>
+                                    </tr>
+                                ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                </main>
+
+                {activeMatch && <DartsCalculator match={activeMatch} players={players} onClose={() => setActiveMatch(null)} onSave={handleMatchEnd} />}
+            </div>
+        );
+    }
+
+    function MatchBox({ m, players, onClick, isFinal = false }) {
+        const hasPlayers = m.p1 !== null && m.p2 !== null;
+        return (
+            <div onClick={onClick} className={`match-card p-4 rounded-2xl w-full border-2 transition-all ${!hasPlayers ? 'opacity-30 border-transparent' : 'cursor-pointer hover:border-yellow-500 border-white/5'} ${isFinal ? 'bg-yellow-500/10 border-yellow-500/40' : ''}`}>
+                <div className="space-y-3">
+                    <div className="flex justify-between items-center text-sm font-black uppercase">
+                        <span>{m.p1 !== null ? players[m.p1] : '???'}</span>
+                        <span className="bg-black/40 px-2 py-1 rounded text-yellow-500 font-mono">{m.s1}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-sm font-black uppercase">
+                        <span>{m.p2 !== null ? players[m.p2] : '???'}</span>
+                        <span className="bg-black/40 px-2 py-1 rounded text-yellow-500 font-mono">{m.s2}</span>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    function DartsCalculator({ match, players, onClose, onSave }) {
+        const [p1Score, setP1Score] = useState(STARTING_SCORE);
+        const [p2Score, setP2Score] = useState(STARTING_SCORE);
+        const [legs, setLegs] = useState([match.s1, match.s2]);
+        const [bust, setBust] = useState(false);
+        const [winnerOfLeg, setWinnerOfLeg] = useState(null);
+
+        const [initialStarter] = useState(() => (Math.random() < 0.5 ? 0 : 1));
+        const [coinFlipLabel] = useState(() => (initialStarter === 0 ? players[match.p1] : players[match.p2]));
+        const currentLegIndex = legs[0] + legs[1];
+        const legStarter = currentLegIndex % 2 === 0 ? initialStarter : 1 - initialStarter;
+
+        const [turn, setTurn] = useState(legStarter);
+        const [dartInTurn, setDartInTurn] = useState(0);
+        const [currentDarts, setCurrentDarts] = useState([null, null, null]);
+        const [multiplier, setMultiplier] = useState(1);
+        const [turnStartScores, setTurnStartScores] = useState({ p1: STARTING_SCORE, p2: STARTING_SCORE });
+
+        const [history, setHistory] = useState(match.history || []);
+        const [stepHistory, setStepHistory] = useState([
+            {
+                p1Score: STARTING_SCORE,
+                p2Score: STARTING_SCORE,
+                turn: legStarter,
+                dartInTurn: 0,
+                currentDarts: [null, null, null],
+                winnerOfLeg: null,
+                turnStartScores: { p1: STARTING_SCORE, p2: STARTING_SCORE },
+            },
+        ]);
+
+        const currentPlayerIdx = turn === 0 ? match.p1 : match.p2;
+        const currentScore = turn === 0 ? p1Score : p2Score;
+
+        const pushStep = (snapshot) => {
+            setStepHistory((prev) => [...prev, snapshot]);
+        };
+
+        const switchTurn = () => {
+            const nextTurn = turn === 0 ? 1 : 0;
+            setTurn(nextTurn);
+            setDartInTurn(0);
+            setCurrentDarts([null, null, null]);
+            setMultiplier(1);
+            setTurnStartScores({ p1: p1Score, p2: p2Score });
+        };
+
+        const handleDartInput = (rawVal) => {
+            if (winnerOfLeg !== null) return;
+
+            const actualVal = rawVal === 25 ? (multiplier === 2 ? 50 : 25) : rawVal * multiplier;
+            const remaining = currentScore - actualVal;
+            const snapshot = {
+                p1Score,
+                p2Score,
+                turn,
+                dartInTurn,
+                currentDarts: [...currentDarts],
+                winnerOfLeg,
+                turnStartScores: { ...turnStartScores },
+            };
+
+            const hadCheckoutChance = currentScore <= 170 && currentScore !== 169 && currentScore !== 168 && currentScore !== 166 && currentScore !== 165 && currentScore !== 163 && currentScore !== 162 && currentScore !== 159;
+
+            if (remaining < 0 || remaining === 1) {
+                setBust(true);
+                setTimeout(() => {
+                    setBust(false);
+                    setP1Score(turnStartScores.p1);
+                    setP2Score(turnStartScores.p2);
+                    const bustDarts = [...currentDarts];
+                    bustDarts[dartInTurn] = actualVal;
+                    setHistory((prev) => [
+                        ...prev,
+                        { player: currentPlayerIdx, darts: bustDarts.filter((d) => d !== null).map(() => 0), isCheckout: false, hadCheckoutChance },
+                    ]);
+                    setTurn(turn === 0 ? 1 : 0);
+                    setDartInTurn(0);
+                    setCurrentDarts([null, null, null]);
+                    setMultiplier(1);
+                    setTurnStartScores({ p1: turnStartScores.p1, p2: turnStartScores.p2 });
+                    pushStep(snapshot);
+                }, 1000);
+                return;
+            }
+
+            const newDarts = [...currentDarts];
+            newDarts[dartInTurn] = actualVal;
+
+            if (remaining === 0) {
+                if (turn === 0) setP1Score(0);
+                else setP2Score(0);
+                setCurrentDarts(newDarts);
+                setWinnerOfLeg(turn);
+                pushStep(snapshot);
+                confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+                return;
+            }
+
+            if (turn === 0) setP1Score(remaining);
+            else setP2Score(remaining);
+            setCurrentDarts(newDarts);
+            setMultiplier(1);
+            pushStep(snapshot);
+
+            if (dartInTurn === 2) {
+                setTimeout(() => {
+                    setHistory((prev) => [...prev, { player: currentPlayerIdx, darts: newDarts, isCheckout: false, hadCheckoutChance }]);
+                    setTurn(turn === 0 ? 1 : 0);
+                    setDartInTurn(0);
+                    setCurrentDarts([null, null, null]);
+                    setTurnStartScores({
+                        p1: turn === 0 ? remaining : p1Score,
+                        p2: turn === 1 ? remaining : p2Score,
+                    });
+                }, 50);
+            } else {
+                setDartInTurn(dartInTurn + 1);
+            }
+        };
+
+        const confirmLeg = () => {
+            const updatedHistory = [
+                ...history,
+                {
+                    player: currentPlayerIdx,
+                    darts: currentDarts.filter((d) => d !== null),
+                    isCheckout: true,
+                    hadCheckoutChance: true,
+                },
+            ];
+            const newLegs = [...legs];
+            newLegs[winnerOfLeg]++;
+
+            if (newLegs[winnerOfLeg] >= LEGS_TO_WIN) {
+                onSave(match.id, newLegs[0], newLegs[1], updatedHistory);
+            } else {
+                setLegs(newLegs);
+                setHistory(updatedHistory);
+                setWinnerOfLeg(null);
+                resetLeg(newLegs);
+            }
+        };
+
+        const handleBack = () => {
+            if (stepHistory.length <= 1 || bust) return;
+            const last = stepHistory[stepHistory.length - 1];
+            if (last.dartInTurn === 2 && history.length > 0 && winnerOfLeg === null) {
+                setHistory((prev) => prev.slice(0, -1));
+            }
+
+            setP1Score(last.p1Score);
+            setP2Score(last.p2Score);
+            setTurn(last.turn);
+            setDartInTurn(last.dartInTurn);
+            setCurrentDarts(last.currentDarts);
+            setWinnerOfLeg(null);
+            setTurnStartScores(last.turnStartScores || { p1: STARTING_SCORE, p2: STARTING_SCORE });
+            setStepHistory((prev) => prev.slice(0, -1));
+        };
+
+        const resetLeg = (newLegs) => {
+            const nextStarter = (newLegs[0] + newLegs[1]) % 2 === 0 ? initialStarter : 1 - initialStarter;
+            setP1Score(STARTING_SCORE);
+            setP2Score(STARTING_SCORE);
+            setTurn(nextStarter);
+            setDartInTurn(0);
+            setCurrentDarts([null, null, null]);
+            setMultiplier(1);
+            setTurnStartScores({ p1: STARTING_SCORE, p2: STARTING_SCORE });
+            setStepHistory([
+                {
+                    p1Score: STARTING_SCORE,
+                    p2Score: STARTING_SCORE,
+                    turn: nextStarter,
+                    dartInTurn: 0,
+                    currentDarts: [null, null, null],
+                    winnerOfLeg: null,
+                    turnStartScores: { p1: STARTING_SCORE, p2: STARTING_SCORE },
+                },
+            ]);
+        };
+
+        return (
+            <div className="fixed inset-0 z-50 bg-slate-950 flex flex-col font-sans">
+                {bust && <div className="absolute inset-0 z-[60] flex items-center justify-center bg-black/60"><div className="bust-overlay text-9xl font-black text-red-500 italic">BUST!</div></div>}
+                <div className="p-4 border-b border-white/5 flex justify-between items-center bg-slate-900 shadow-xl">
+                    <button onClick={onClose} className="text-slate-400 font-black uppercase text-[10px] hover:text-white transition-all">Lopeta</button>
+                    <div className="text-center font-oswald uppercase font-black italic text-xl">
+                        {players[match.p1]} <span className="text-yellow-500 mx-3">{legs[0]} - {legs[1]}</span> {players[match.p2]}
+                        <div className="text-[10px] tracking-widest text-slate-400 not-italic mt-1">Aloitusvuoro arvottu: {coinFlipLabel}</div>
+                    </div>
+                    <div className="w-10"></div>
+                </div>
+                <div className="flex-1 flex flex-col p-4 gap-4 max-w-4xl mx-auto w-full">
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className={`p-6 rounded-3xl border-4 ${turn === 0 ? 'border-yellow-500 bg-yellow-500/10' : 'border-white/5 opacity-30'}`}><div className="text-7xl font-mono font-black text-center">{p1Score}</div></div>
+                        <div className={`p-6 rounded-3xl border-4 ${turn === 1 ? 'border-yellow-500 bg-yellow-500/10' : 'border-white/5 opacity-30'}`}><div className="text-7xl font-mono font-black text-center">{p2Score}</div></div>
+                    </div>
+                    <div className="flex-1 flex flex-col items-center justify-center gap-4 bg-white/5 rounded-3xl border border-white/10">
+                        {winnerOfLeg !== null ? (
+                            <div className="text-center animate-bounce">
+                                <div className="text-yellow-500 text-4xl font-black mb-4 uppercase">LEG VOITETTU!</div>
+                                <button onClick={confirmLeg} className="bg-green-600 px-8 py-4 rounded-2xl font-black uppercase text-xl">Jatka peliä</button>
+                            </div>
+                        ) : (
+                            <div className="flex gap-4">
+                                {currentDarts.map((d, i) => (
+                                    <div key={i} className={`dart-slot ${dartInTurn === i ? 'active' : ''}`}><span className="text-3xl font-black text-white">{d !== null ? d : ''}</span></div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                    <div className="flex flex-col gap-3 mt-auto">
+                        <div className="grid grid-cols-4 gap-2">
+                            <button onClick={() => setMultiplier(2)} className={`dart-btn multiplier-btn ${multiplier === 2 ? 'active' : ''}`}>Tupla</button>
+                            <button onClick={() => setMultiplier(3)} className={`dart-btn multiplier-btn ${multiplier === 3 ? 'active' : ''}`}>Tripla</button>
+                            <button onClick={() => handleDartInput(0)} className="dart-btn opacity-50 uppercase text-xs">Ohi</button>
+                            <button onClick={handleBack} className="dart-btn text-red-500"><i className="fas fa-undo"></i></button>
+                        </div>
+                        <div className="grid grid-cols-5 gap-2">
+                            {[20, 19, 18, 17, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1].map((n) => (
+                                <button key={n} onClick={() => handleDartInput(n)} className="dart-btn font-mono">{n}</button>
+                            ))}
+                        </div>
+                        <button onClick={() => handleDartInput(25)} className="dart-btn w-full bg-slate-800 text-yellow-500 border-2 border-yellow-500/40 uppercase font-black">Bullseye</button>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+</script>
+</body>
+</html>
