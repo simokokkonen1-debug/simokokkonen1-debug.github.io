@@ -589,6 +589,7 @@
         const [legs, setLegs] = useState([match.s1, match.s2]);
         const [bust, setBust] = useState(false);
         const [winnerOfLeg, setWinnerOfLeg] = useState(null);
+        const [isFinishingMatch, setIsFinishingMatch] = useState(false);
 
         const [initialStarter] = useState(() => (Math.random() < 0.5 ? 0 : 1));
         const [coinFlipLabel] = useState(() => (initialStarter === 0 ? players[match.p1] : players[match.p2]));
@@ -727,6 +728,7 @@
         };
 
         const confirmLeg = () => {
+            if (isFinishingMatch) return;
             const updatedHistory = [
                 ...history,
                 {
@@ -792,6 +794,14 @@
         return (
             <div className="fixed inset-0 z-50 bg-slate-950 flex flex-col font-sans">
                 {bust && <div className="absolute inset-0 z-[60] flex items-center justify-center bg-black/60"><div className="bust-overlay text-9xl font-black text-red-500 italic">BUST!</div></div>}
+                {isFinishingMatch && (
+                    <div className="absolute inset-0 z-[65] flex items-center justify-center bg-black/70">
+                        <div className="bust-overlay text-center">
+                            <div className="text-yellow-400 text-6xl font-black uppercase mb-3">OTTELU VOITETTU!</div>
+                            <div className="text-2xl font-bold uppercase">{players[currentPlayerIdx]}</div>
+                        </div>
+                    </div>
+                )}
                 <div className="p-4 border-b border-white/5 flex justify-between items-center bg-slate-900 shadow-xl">
                     <button onClick={onClose} className="text-slate-400 font-black uppercase text-[10px] hover:text-white transition-all">Lopeta</button>
                     <div className="text-center font-oswald uppercase font-black italic text-xl">
@@ -809,7 +819,9 @@
                         {winnerOfLeg !== null ? (
                             <div className="text-center animate-bounce">
                                 <div className="text-yellow-500 text-4xl font-black mb-4 uppercase">LEG VOITETTU!</div>
-                                <button onClick={confirmLeg} className="bg-green-600 px-8 py-4 rounded-2xl font-black uppercase text-xl">Jatka peliä</button>
+                                <button onClick={confirmLeg} disabled={isFinishingMatch} className={`bg-green-600 px-8 py-4 rounded-2xl font-black uppercase text-xl ${isFinishingMatch ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                                    {isFinishingMatch ? 'Päätetään ottelua...' : 'Jatka peliä'}
+                                </button>
                             </div>
                         ) : (
                             <div className="flex gap-4">
