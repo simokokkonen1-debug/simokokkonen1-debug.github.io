@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Teepee Darts Cup - Mökkiturnaus</title>
 
-    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
-    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script crossorigin src="https://cdn.jsdelivr.net/npm/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
 
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -151,6 +151,7 @@
 
     const STARTING_SCORE = 301;
     const LEGS_TO_WIN = 3;
+    const VICTORY_MUSIC_SRC = 'assets/victory-music.mp3';
 
     const getStandings = (players, matches, groupPlayersIndices, groupLabel) => {
         const groupMatches = matches.filter((m) => m.group === groupLabel);
@@ -229,6 +230,7 @@
         const [groupMatches, setGroupMatches] = useState([]);
         const [bracketMatches, setBracketMatches] = useState([]);
         const [activeMatch, setActiveMatch] = useState(null);
+        const [matchCelebration, setMatchCelebration] = useState(null);
 
         const shuffleGroups = () => {
             const shuffledIndices = [...Array(players.length).keys()].sort(() => Math.random() - 0.5);
@@ -288,7 +290,27 @@
             });
         }, [groupMatches, view, players, groupA, groupB]);
 
+
+        const triggerWinnerCelebration = (winnerName, isFinal = false) => {
+            if (!winnerName) return;
+
+            setMatchCelebration({ winnerName, isFinal });
+
+            const end = Date.now() + 1800;
+            const rain = () => {
+                confetti({ particleCount: 5, spread: 55, startVelocity: 35, origin: { x: 0.1 + Math.random() * 0.2, y: 0 } });
+                confetti({ particleCount: 5, spread: 55, startVelocity: 35, origin: { x: 0.7 + Math.random() * 0.2, y: 0 } });
+                if (Date.now() < end) requestAnimationFrame(rain);
+            };
+            rain();
+
+            setTimeout(() => setMatchCelebration(null), 2600);
+        };
+
         const handleMatchEnd = (id, s1, s2, history) => {
+            const winnerIdx = activeMatch ? (s1 > s2 ? activeMatch.p1 : activeMatch.p2) : null;
+            const winnerName = winnerIdx !== null ? players[winnerIdx] : null;
+
             if (id.startsWith('m-')) {
                 setGroupMatches((prev) => prev.map((m) => (m.id === id ? { ...m, s1, s2, played: true, history } : m)));
             } else {
@@ -301,10 +323,11 @@
                     if (id === 'wc2') next[2].p2 = winner;
                     if (id === 'sf1') next[4].p1 = winner;
                     if (id === 'sf2') next[4].p2 = winner;
-                    if (id === 'f' && winner !== null) confetti({ particleCount: 200, spread: 70, origin: { y: 0.6 } });
                     return next;
                 });
             }
+
+            triggerWinnerCelebration(winnerName, id === 'f');
             setActiveMatch(null);
         };
 
@@ -559,6 +582,18 @@
                 </main>
 
                 {activeMatch && <DartsCalculator match={activeMatch} players={players} onClose={() => setActiveMatch(null)} onSave={handleMatchEnd} />}
+                {matchCelebration && (
+                    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 pointer-events-none">
+                        <div className="text-center px-6">
+                            <div className="text-yellow-400 text-xl md:text-3xl font-black uppercase tracking-widest mb-4">
+                                {matchCelebration.isFinal ? 'Turnausvoittaja' : 'Ottelun voittaja'}
+                            </div>
+                            <div className="text-5xl md:text-8xl font-black uppercase text-white drop-shadow-[0_0_30px_rgba(231,227,89,0.7)] animate-bounce">
+                                {matchCelebration.winnerName}
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
         );
     }
@@ -587,6 +622,8 @@
         const [legs, setLegs] = useState([match.s1, match.s2]);
         const [bust, setBust] = useState(false);
         const [winnerOfLeg, setWinnerOfLeg] = useState(null);
+        const [isFinishingMatch, setIsFinishingMatch] = useState(false);
+        const [audioError, setAudioError] = useState('');
 
         const [initialStarter] = useState(() => (Math.random() < 0.5 ? 0 : 1));
         const [coinFlipLabel] = useState(() => (initialStarter === 0 ? players[match.p1] : players[match.p2]));
@@ -614,6 +651,26 @@
 
         const currentPlayerIdx = turn === 0 ? match.p1 : match.p2;
         const currentScore = turn === 0 ? p1Score : p2Score;
+
+        const playVictoryMusic = () => {
+            setAudioError('');
+            const audio = new Audio(VICTORY_MUSIC_SRC);
+            audio.preload = 'auto';
+            audio.currentTime = 0;
+
+            // Pidetään vahva viite toiston ajan, jotta ääni ei katkea heti näkymän vaihtuessa.
+            window.__teepeeVictoryAudio = audio;
+
+            audio.addEventListener('ended', () => {
+                if (window.__teepeeVictoryAudio === audio) {
+                    window.__teepeeVictoryAudio = null;
+                }
+            }, { once: true });
+
+            audio.play().catch(() => {
+                setAudioError('Voittomusiikin toisto epäonnistui. Tarkista tiedosto assets/victory-music.mp3 ja selaimen äänioikeudet.');
+            });
+        };
 
         const pushStep = (snapshot) => {
             setStepHistory((prev) => [...prev, snapshot]);
@@ -703,6 +760,7 @@
         };
 
         const confirmLeg = () => {
+            if (isFinishingMatch) return;
             const updatedHistory = [
                 ...history,
                 {
@@ -716,7 +774,11 @@
             newLegs[winnerOfLeg]++;
 
             if (newLegs[winnerOfLeg] >= LEGS_TO_WIN) {
-                onSave(match.id, newLegs[0], newLegs[1], updatedHistory);
+                playVictoryMusic();
+                setIsFinishingMatch(true);
+                setTimeout(() => {
+                    onSave(match.id, newLegs[0], newLegs[1], updatedHistory);
+                }, 1400);
             } else {
                 setLegs(newLegs);
                 setHistory(updatedHistory);
@@ -767,6 +829,14 @@
         return (
             <div className="fixed inset-0 z-50 bg-slate-950 flex flex-col font-sans">
                 {bust && <div className="absolute inset-0 z-[60] flex items-center justify-center bg-black/60"><div className="bust-overlay text-9xl font-black text-red-500 italic">BUST!</div></div>}
+                {isFinishingMatch && (
+                    <div className="absolute inset-0 z-[65] flex items-center justify-center bg-black/70">
+                        <div className="bust-overlay text-center">
+                            <div className="text-yellow-400 text-6xl font-black uppercase mb-3">OTTELU VOITETTU!</div>
+                            <div className="text-2xl font-bold uppercase">{players[currentPlayerIdx]}</div>
+                        </div>
+                    </div>
+                )}
                 <div className="p-4 border-b border-white/5 flex justify-between items-center bg-slate-900 shadow-xl">
                     <button onClick={onClose} className="text-slate-400 font-black uppercase text-[10px] hover:text-white transition-all">Lopeta</button>
                     <div className="text-center font-oswald uppercase font-black italic text-xl">
@@ -784,7 +854,10 @@
                         {winnerOfLeg !== null ? (
                             <div className="text-center animate-bounce">
                                 <div className="text-yellow-500 text-4xl font-black mb-4 uppercase">LEG VOITETTU!</div>
-                                <button onClick={confirmLeg} className="bg-green-600 px-8 py-4 rounded-2xl font-black uppercase text-xl">Jatka peliä</button>
+                                {audioError && <div className="text-[11px] text-red-300 mb-3 max-w-xl">{audioError}</div>}
+                                <button onClick={confirmLeg} disabled={isFinishingMatch} className={`bg-green-600 px-8 py-4 rounded-2xl font-black uppercase text-xl ${isFinishingMatch ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                                    {isFinishingMatch ? 'Päätetään ottelua...' : 'Jatka peliä'}
+                                </button>
                             </div>
                         ) : (
                             <div className="flex gap-4">
