@@ -135,6 +135,17 @@
             animation: fadeInOut 1s forwards;
         }
 
+        .winner-name-banner {
+            animation: winnerRise 0.8s ease-out forwards;
+            text-shadow: 0 10px 30px rgba(0, 0, 0, 0.55);
+        }
+
+        @keyframes winnerRise {
+            0% { opacity: 0; transform: translateY(20px) scale(0.8); }
+            60% { opacity: 1; transform: translateY(-6px) scale(1.04); }
+            100% { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
         @keyframes fadeInOut {
             0% { opacity: 0; transform: scale(0.5); }
             20% { opacity: 1; transform: scale(1.1); }
@@ -772,6 +783,8 @@
 
     function DartsCalculator({ match, players, onClose, onSave }) {
         const victoryAudioRef = useRef(null);
+        const confettiRainRef = useRef(null);
+        const celebrationTimeoutRef = useRef(null);
         const [p1Score, setP1Score] = useState(STARTING_SCORE);
         const [p2Score, setP2Score] = useState(STARTING_SCORE);
         const [legs, setLegs] = useState([match.s1, match.s2]);
@@ -814,6 +827,14 @@
             victoryAudioRef.current = audio;
 
             return () => {
+                if (confettiRainRef.current) {
+                    clearInterval(confettiRainRef.current);
+                    confettiRainRef.current = null;
+                }
+                if (celebrationTimeoutRef.current) {
+                    clearTimeout(celebrationTimeoutRef.current);
+                    celebrationTimeoutRef.current = null;
+                }
                 if (!victoryAudioRef.current) return;
                 victoryAudioRef.current.pause();
                 victoryAudioRef.current = null;
@@ -822,12 +843,51 @@
 
         const playVictoryMusic = () => {
             const audio = victoryAudioRef.current;
-            if (!audio) return;
+            if (!audio) return null;
 
             audio.currentTime = 0;
             audio.play().catch(() => {
                 // Musiikkitiedosto saattaa puuttua tai selaimen autoplay-rajoitukset estävät toiston.
             });
+
+            return audio;
+        };
+
+        const launchConfettiRain = () => {
+            confetti({ particleCount: 220, spread: 85, origin: { y: 0.55 } });
+            confettiRainRef.current = setInterval(() => {
+                confetti({ particleCount: 18, angle: 65, spread: 55, origin: { x: 0, y: 0.7 } });
+                confetti({ particleCount: 18, angle: 115, spread: 55, origin: { x: 1, y: 0.7 } });
+            }, 350);
+        };
+
+        const finishMatchWithCelebration = (winner, finalLegs, updatedHistory) => {
+            if (isFinishingMatch) return;
+            setIsFinishingMatch(true);
+
+            const audio = playVictoryMusic();
+            launchConfettiRain();
+
+            let finished = false;
+            const complete = () => {
+                if (finished) return;
+                finished = true;
+                if (confettiRainRef.current) {
+                    clearInterval(confettiRainRef.current);
+                    confettiRainRef.current = null;
+                }
+                onSave(match.id, finalLegs[0], finalLegs[1], updatedHistory);
+            };
+
+            if (audio) {
+                audio.onended = complete;
+            }
+
+            const fallbackMs = audio && Number.isFinite(audio.duration) && audio.duration > 0
+                ? Math.max(3500, Math.min(audio.duration * 1000, 15000))
+                : 9000;
+
+            celebrationTimeoutRef.current = setTimeout(complete, fallbackMs);
         };
 
         const pushStep = (snapshot) => {
@@ -956,8 +1016,7 @@
             newLegs[winnerOfLeg]++;
 
             if (newLegs[winnerOfLeg] >= LEGS_TO_WIN) {
-                playVictoryMusic();
-                onSave(match.id, newLegs[0], newLegs[1], updatedHistory);
+                finishMatchWithCelebration(winnerOfLeg, newLegs, updatedHistory);
             } else {
                 setLegs(newLegs);
                 setHistory(updatedHistory);
@@ -1013,9 +1072,10 @@
                 {bust && <div className="absolute inset-0 z-[60] flex items-center justify-center bg-black/60"><div className="bust-overlay text-9xl font-black text-red-500 italic">BUST!</div></div>}
                 {isFinishingMatch && (
                     <div className="absolute inset-0 z-[65] flex items-center justify-center bg-black/70">
-                        <div className="bust-overlay text-center">
-                            <div className="text-yellow-400 text-6xl font-black uppercase mb-3">OTTELU VOITETTU!</div>
-                            <div className="text-2xl font-bold uppercase">{players[currentPlayerIdx]}</div>
+                        <div className="text-center px-6">
+                            <div className="text-yellow-400 text-4xl md:text-6xl font-black uppercase mb-4">Ottelu voitettu!</div>
+                            <div className="winner-name-banner text-white text-5xl md:text-8xl font-black uppercase tracking-wide">{players[winnerOfLeg === 0 ? match.p1 : match.p2]}</div>
+                            <div className="text-emerald-100 mt-4 uppercase tracking-[0.35em] text-xs md:text-sm">Mestari lavalla</div>
                         </div>
                     </div>
                 )}
