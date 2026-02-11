@@ -152,6 +152,189 @@
     const STARTING_SCORE = 301;
     const LEGS_TO_WIN = 3;
     const VICTORY_MUSIC_SRC = 'assets/victory-music.mp3';
+    const BOGEY_NUMBERS = new Set([169, 168, 166, 165, 163, 162, 159]);
+    const FAVORITE_DOUBLES = [40, 32, 24, 16, 20, 36, 12, 8, 4, 2];
+
+    const scoreLabel = (value) => {
+        if (value === 50) return 'BULL';
+        if (value === 25) return '25';
+        if (value <= 40 && value % 2 === 0) return `D${value / 2}`;
+        if (value <= 60 && value % 3 === 0) return `T${value / 3}`;
+        if (value <= 20) return `S${value}`;
+        return String(value);
+    };
+
+    const setupThrowLabel = (value) => {
+        if (value >= 1 && value <= 20) return `S${value}`;
+        if (value === 25) return '25';
+        if (value === 50) return 'BULL';
+        if (value <= 60 && value % 3 === 0) return `T${value / 3}`;
+        if (value <= 40 && value % 2 === 0) return `D${value / 2}`;
+        return String(value);
+    };
+
+    const preferredDoubleLabel = (value) => {
+        if (value === 50) return 'BULL';
+        if (value > 1 && value <= 40 && value % 2 === 0) return `D${value / 2}`;
+        return String(value);
+    };
+
+    const DOUBLE_FINISH_PRIORITY = [40, 32, 24, 16, 20, 36, 12, 8, 4, 2, 28, 26, 22, 18, 14, 10, 6, 30, 34, 38, 50];
+    const DOUBLE_PRIORITY_INDEX = new Map(DOUBLE_FINISH_PRIORITY.map((value, index) => [value, index]));
+
+    const TRIPLE_ORDER = [20, 19, 18, 17, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1];
+    const DOUBLE_ORDER = [20, 16, 12, 10, 18, 14, 8, 6, 4, 2, 1, 3, 5, 7, 9, 11, 13, 15, 17, 19];
+    const SINGLE_ORDER = [20, 19, 18, 17, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1];
+
+    const FINISH_SEGMENTS = [
+        ...TRIPLE_ORDER.map((n) => ({ kind: 'T', number: n, score: n * 3, label: `T${n}`, isDouble: false })),
+        ...DOUBLE_ORDER.map((n) => ({ kind: 'D', number: n, score: n * 2, label: `D${n}`, isDouble: true })),
+        ...SINGLE_ORDER.map((n) => ({ kind: 'S', number: n, score: n, label: `S${n}`, isDouble: false })),
+        { kind: 'B', number: 50, score: 50, label: 'BULL', isDouble: true },
+        { kind: 'B', number: 25, score: 25, label: '25', isDouble: false },
+    ];
+
+    const routeRank = (route, startScore) => {
+        const last = route[route.length - 1];
+        const doubleRank = DOUBLE_PRIORITY_INDEX.has(last.score) ? DOUBLE_PRIORITY_INDEX.get(last.score) : 99;
+        const first = route[0];
+        const middleDoubles = route.slice(0, -1).filter((s) => s.kind === 'D').length;
+        const bullsBeforeFinish = route.slice(0, -1).filter((s) => s.kind === 'B').length;
+
+        let rank = route.length * 100 + doubleRank * 3 + middleDoubles * 2 + bullsBeforeFinish * 2;
+
+        if (startScore > 80 && route.length === 3 && first.kind !== 'T') rank += 18;
+        if (startScore > 60 && route.length === 2 && first.kind === 'D') rank += 10;
+        if (startScore <= 60 && route.length >= 2 && first.kind === 'T') rank += 12;
+
+        return rank;
+    };
+
+    const getCheckoutRoutes = (score, dartsLeft, maxRoutes = 4) => {
+        const rawRoutes = [];
+
+        const walk = (remaining, darts, path) => {
+            if (remaining === 0 && path.length > 0) {
+                const last = path[path.length - 1];
+                if (last.isDouble) rawRoutes.push(path);
+                return;
+            }
+            if (remaining <= 1 || darts === 0) return;
+
+            for (const segment of FINISH_SEGMENTS) {
+                if (segment.score > remaining) continue;
+                walk(remaining - segment.score, darts - 1, [...path, segment]);
+            }
+        };
+
+        walk(score, dartsLeft, []);
+
+        const deduped = [];
+        const seen = new Set();
+        rawRoutes
+            .sort((a, b) => routeRank(a, score) - routeRank(b, score))
+            .forEach((route) => {
+                const key = route.map((s) => s.label).join('-');
+                if (!seen.has(key)) {
+                    seen.add(key);
+                    deduped.push(route);
+                }
+            });
+
+        return deduped.slice(0, maxRoutes);
+    };
+
+    const getMissScenarios = (bestRoute, score) => {
+        if (!bestRoute || !bestRoute.length) return [];
+        const first = bestRoute[0];
+        const scenarios = [];
+
+        if (first.kind === 'T') {
+            scenarios.push({ label: `Jos osut ${`S${first.number}`} (tripla jäi sinkuksi)`, hit: first.number });
+        } else if (first.kind === 'D') {
+            scenarios.push({ label: `Jos osut ${`S${first.number}`} (tupla jäi sinkuksi)`, hit: first.number });
+        } else if (first.kind === 'B' && first.number === 50) {
+            scenarios.push({ label: 'Jos osut 25', hit: 25 });
+        }
+
+        scenarios.push({ label: 'Jos osut ohi', hit: 0 });
+
+        return scenarios.map((scenario) => {
+            const afterHit = score - scenario.hit;
+            const next = getCheckoutRoutes(afterHit, 2, 1)[0];
+
+            return {
+                label: scenario.label,
+                route: next ? next.map((s) => s.label).join(' → ') : getSetupSuggestion(afterHit),
+            };
+        });
+    };
+
+    const getSetupSuggestion = (score) => {
+        const options = [];
+
+        for (const target of FAVORITE_DOUBLES) {
+            const setup = score - target;
+            if (setup > 0 && setup <= 60) {
+                options.push({
+                    throwLabel: setupThrowLabel(setup),
+                    leaveLabel: preferredDoubleLabel(target),
+                });
+            }
+        }
+
+        if (options.length > 1) {
+            return `Pelaa setup: ${options[0].throwLabel} jättää ${options[0].leaveLabel} tai ${options[1].throwLabel} jättää ${options[1].leaveLabel}.`;
+        }
+
+        if (options.length === 1) {
+            return `Pelaa setup: ${options[0].throwLabel} jättää ${options[0].leaveLabel}.`;
+        }
+
+        return 'Pelaa korkea setup (T20/T19) ja vältä 1 tai bust.';
+    };
+
+    const getCheckoutAdvice = (score, dartsLeft) => {
+        if (score < 2 || score > 170) {
+            return { message: 'Checkout-suositukset näkyvät pisteille 2–170.', best: null, alternatives: [], missPlan: [], bogey: false };
+        }
+
+        if (BOGEY_NUMBERS.has(score)) {
+            return {
+                message: `Bogey-luku (${score}) – suoraa 3 tikan checkoutia ei ole.`,
+                best: null,
+                alternatives: [],
+                missPlan: [],
+                bogey: true,
+                setup: getSetupSuggestion(score),
+            };
+        }
+
+        const routes = getCheckoutRoutes(score, dartsLeft, 5);
+        if (!routes.length) {
+            return {
+                message: 'Ei suoraa checkoutia tällä tikkojen määrällä. Pelaa setup seuraavalle vuorolle.',
+                best: null,
+                alternatives: [],
+                missPlan: [],
+                bogey: false,
+                setup: getSetupSuggestion(score),
+            };
+        }
+
+        const [best, ...alternatives] = routes;
+        const missPlan = dartsLeft === 3 ? getMissScenarios(best, score) : [];
+
+        return {
+            message: 'Optimaalinen checkout ja vaihtoehdot alla.',
+            best: best.map((s) => s.label).join(' → '),
+            alternatives: alternatives.map((route) => route.map((s) => s.label).join(' → ')),
+            missPlan,
+            bogey: false,
+        };
+    };
+
+    const canCheckoutInOneDart = (score) => score === 50 || (score > 1 && score <= 40 && score % 2 === 0);
 
     const getStandings = (players, matches, groupPlayersIndices, groupLabel) => {
         const groupMatches = matches.filter((m) => m.group === groupLabel);
@@ -327,22 +510,25 @@
             [...groupMatches, ...bracketMatches].forEach((m) => {
                 if (!m.history) return;
 
-                m.history.forEach((turn) => {
-                    const p = stats.find((s) => s.idx === turn.player);
+                m.history.forEach((turnData) => {
+                    const p = stats.find((s) => s.idx === turnData.player);
                     if (!p) return;
 
-                    const turnSum = turn.darts.reduce((a, b) => a + (b || 0), 0);
+                    const turnSum = turnData.darts.reduce((a, b) => a + (b || 0), 0);
                     p.totalScore += turnSum;
-                    p.dartsCount += turn.darts.length;
+                    p.dartsCount += turnData.darts.length;
                     p.bestTurn = Math.max(p.bestTurn, turnSum);
 
                     if (turnSum >= 140) p.score140plus++;
                     else if (turnSum >= 100) p.score100plus++;
                     else if (turnSum >= 60) p.score60plus++;
 
-                    if (turn.hadCheckoutChance) p.checkoutAttempts++;
-                    if (turn.isCheckout) {
-                        p.checkoutHits++;
+                    (turnData.dartEvents || []).forEach((event) => {
+                        if (event.wasDoubleAttempt) p.checkoutAttempts++;
+                        if (event.wasSuccessfulDoubleOut) p.checkoutHits++;
+                    });
+
+                    if (turnData.isCheckout) {
                         p.bestCheckout = Math.max(p.bestCheckout, turnSum);
                     }
                 });
@@ -535,6 +721,7 @@
                                     <th className="pb-3 text-center">Paras vuoro</th>
                                     <th className="pb-3 text-center">Paras checkout</th>
                                     <th className="pb-3 text-center">Checkout %</th>
+                                    <th className="pb-3 text-center">D osumat/yritykset</th>
                                     <th className="pb-3 text-center">60+</th>
                                     <th className="pb-3 text-center">100+</th>
                                     <th className="pb-3 text-center">140+</th>
@@ -548,6 +735,7 @@
                                         <td className="py-4 text-center text-white">{s.bestTurn || '-'}</td>
                                         <td className="py-4 text-center text-white">{s.bestCheckout || '-'}</td>
                                         <td className="py-4 text-center text-white">{s.checkoutAttempts ? `${s.checkoutPct.toFixed(1)}%` : '-'}</td>
+                                        <td className="py-4 text-center text-white">{s.checkoutHits}/{s.checkoutAttempts}</td>
                                         <td className="py-4 text-center text-slate-400">{s.score60plus}</td>
                                         <td className="py-4 text-center text-slate-400">{s.score100plus}</td>
                                         <td className="py-4 text-center text-slate-400">{s.score140plus}</td>
@@ -599,6 +787,7 @@
         const [turn, setTurn] = useState(legStarter);
         const [dartInTurn, setDartInTurn] = useState(0);
         const [currentDarts, setCurrentDarts] = useState([null, null, null]);
+        const [currentDartEvents, setCurrentDartEvents] = useState([null, null, null]);
         const [multiplier, setMultiplier] = useState(1);
         const [turnStartScores, setTurnStartScores] = useState({ p1: STARTING_SCORE, p2: STARTING_SCORE });
 
@@ -610,6 +799,7 @@
                 turn: legStarter,
                 dartInTurn: 0,
                 currentDarts: [null, null, null],
+                currentDartEvents: [null, null, null],
                 winnerOfLeg: null,
                 turnStartScores: { p1: STARTING_SCORE, p2: STARTING_SCORE },
             },
@@ -644,47 +834,66 @@
             setStepHistory((prev) => [...prev, snapshot]);
         };
 
-        const switchTurn = () => {
-            const nextTurn = turn === 0 ? 1 : 0;
-            setTurn(nextTurn);
-            setDartInTurn(0);
-            setCurrentDarts([null, null, null]);
-            setMultiplier(1);
-            setTurnStartScores({ p1: p1Score, p2: p2Score });
-        };
+        const dartsLeft = 3 - dartInTurn;
+        const checkoutAdvice = useMemo(() => getCheckoutAdvice(currentScore, dartsLeft), [currentScore, dartsLeft]);
+        const [showCheckoutDetails, setShowCheckoutDetails] = useState(false);
+
+        useEffect(() => {
+            setShowCheckoutDetails(false);
+        }, [currentScore, turn, dartInTurn]);
 
         const handleDartInput = (rawVal) => {
             if (winnerOfLeg !== null) return;
 
             const actualVal = rawVal === 25 ? (multiplier === 2 ? 50 : 25) : rawVal * multiplier;
+            const isDoubleHit = (rawVal === 25 && multiplier === 2) || (multiplier === 2 && rawVal >= 1 && rawVal <= 20);
             const remaining = currentScore - actualVal;
+            const isValidDoubleOut = remaining === 0 && isDoubleHit;
+            const isBust = remaining < 0 || remaining === 1 || (remaining === 0 && !isValidDoubleOut);
+            const wasDoubleAttempt = canCheckoutInOneDart(currentScore);
+            const dartEvent = {
+                scoreBefore: currentScore,
+                rawVal,
+                multiplier,
+                actualVal,
+                wasDoubleAttempt,
+                wasSuccessfulDoubleOut: isValidDoubleOut,
+            };
+
             const snapshot = {
                 p1Score,
                 p2Score,
                 turn,
                 dartInTurn,
                 currentDarts: [...currentDarts],
+                currentDartEvents: [...currentDartEvents],
                 winnerOfLeg,
                 turnStartScores: { ...turnStartScores },
             };
 
-            const hadCheckoutChance = currentScore <= 170 && currentScore !== 169 && currentScore !== 168 && currentScore !== 166 && currentScore !== 165 && currentScore !== 163 && currentScore !== 162 && currentScore !== 159;
-
-            if (remaining < 0 || remaining === 1) {
+            if (isBust) {
                 setBust(true);
                 setTimeout(() => {
                     setBust(false);
                     setP1Score(turnStartScores.p1);
                     setP2Score(turnStartScores.p2);
                     const bustDarts = [...currentDarts];
+                    const bustEvents = [...currentDartEvents];
                     bustDarts[dartInTurn] = actualVal;
+                    bustEvents[dartInTurn] = dartEvent;
                     setHistory((prev) => [
                         ...prev,
-                        { player: currentPlayerIdx, darts: bustDarts.filter((d) => d !== null).map(() => 0), isCheckout: false, hadCheckoutChance },
+                        {
+                            player: currentPlayerIdx,
+                            darts: bustDarts.filter((d) => d !== null).map(() => 0),
+                            dartEvents: bustEvents.filter((e) => e !== null),
+                            isCheckout: false,
+                        },
                     ]);
                     setTurn(turn === 0 ? 1 : 0);
                     setDartInTurn(0);
                     setCurrentDarts([null, null, null]);
+                    setCurrentDartEvents([null, null, null]);
                     setMultiplier(1);
                     setTurnStartScores({ p1: turnStartScores.p1, p2: turnStartScores.p2 });
                     pushStep(snapshot);
@@ -693,12 +902,15 @@
             }
 
             const newDarts = [...currentDarts];
+            const newDartEvents = [...currentDartEvents];
             newDarts[dartInTurn] = actualVal;
+            newDartEvents[dartInTurn] = dartEvent;
 
-            if (remaining === 0) {
+            if (isValidDoubleOut) {
                 if (turn === 0) setP1Score(0);
                 else setP2Score(0);
                 setCurrentDarts(newDarts);
+                setCurrentDartEvents(newDartEvents);
                 setWinnerOfLeg(turn);
                 pushStep(snapshot);
                 confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
@@ -708,15 +920,17 @@
             if (turn === 0) setP1Score(remaining);
             else setP2Score(remaining);
             setCurrentDarts(newDarts);
+            setCurrentDartEvents(newDartEvents);
             setMultiplier(1);
             pushStep(snapshot);
 
             if (dartInTurn === 2) {
                 setTimeout(() => {
-                    setHistory((prev) => [...prev, { player: currentPlayerIdx, darts: newDarts, isCheckout: false, hadCheckoutChance }]);
+                    setHistory((prev) => [...prev, { player: currentPlayerIdx, darts: newDarts, dartEvents: newDartEvents, isCheckout: false }]);
                     setTurn(turn === 0 ? 1 : 0);
                     setDartInTurn(0);
                     setCurrentDarts([null, null, null]);
+                    setCurrentDartEvents([null, null, null]);
                     setTurnStartScores({
                         p1: turn === 0 ? remaining : p1Score,
                         p2: turn === 1 ? remaining : p2Score,
@@ -734,8 +948,8 @@
                 {
                     player: currentPlayerIdx,
                     darts: currentDarts.filter((d) => d !== null),
+                    dartEvents: currentDartEvents.filter((e) => e !== null),
                     isCheckout: true,
-                    hadCheckoutChance: true,
                 },
             ];
             const newLegs = [...legs];
@@ -764,6 +978,7 @@
             setTurn(last.turn);
             setDartInTurn(last.dartInTurn);
             setCurrentDarts(last.currentDarts);
+            setCurrentDartEvents(last.currentDartEvents || [null, null, null]);
             setWinnerOfLeg(null);
             setTurnStartScores(last.turnStartScores || { p1: STARTING_SCORE, p2: STARTING_SCORE });
             setStepHistory((prev) => prev.slice(0, -1));
@@ -776,6 +991,7 @@
             setTurn(nextStarter);
             setDartInTurn(0);
             setCurrentDarts([null, null, null]);
+            setCurrentDartEvents([null, null, null]);
             setMultiplier(1);
             setTurnStartScores({ p1: STARTING_SCORE, p2: STARTING_SCORE });
             setStepHistory([
@@ -785,6 +1001,7 @@
                     turn: nextStarter,
                     dartInTurn: 0,
                     currentDarts: [null, null, null],
+                    currentDartEvents: [null, null, null],
                     winnerOfLeg: null,
                     turnStartScores: { p1: STARTING_SCORE, p2: STARTING_SCORE },
                 },
@@ -815,6 +1032,46 @@
                         <div className={`p-6 rounded-3xl border-4 ${turn === 0 ? 'border-yellow-500 bg-yellow-500/10' : 'border-white/5 opacity-30'}`}><div className="text-7xl font-mono font-black text-center">{p1Score}</div></div>
                         <div className={`p-6 rounded-3xl border-4 ${turn === 1 ? 'border-yellow-500 bg-yellow-500/10' : 'border-white/5 opacity-30'}`}><div className="text-7xl font-mono font-black text-center">{p2Score}</div></div>
                     </div>
+                    <div className="rounded-2xl border border-yellow-500/35 bg-yellow-500/10 px-4 py-3 text-xs uppercase tracking-wide">
+                        <div className="flex items-center justify-between gap-3">
+                            <div>
+                                <div className="font-black text-yellow-400">Checkout-ehdotus ({currentScore})</div>
+                                {checkoutAdvice.best ? (
+                                    <div className="text-white font-black text-xl tracking-wide mt-1">{checkoutAdvice.best}</div>
+                                ) : (
+                                    <div className="text-slate-200 font-bold mt-1">{checkoutAdvice.message}</div>
+                                )}
+                            </div>
+                            <button
+                                onClick={() => setShowCheckoutDetails((prev) => !prev)}
+                                className="h-9 w-9 shrink-0 rounded-full border border-yellow-500/50 bg-black/25 text-yellow-300 hover:bg-black/40 transition-all"
+                                aria-label={showCheckoutDetails ? 'Piilota checkout-vaihtoehdot' : 'Näytä lisää checkout-vaihtoehtoja'}
+                                title={showCheckoutDetails ? 'Piilota lisävaihtoehdot' : 'Näytä lisävaihtoehdot'}
+                            >
+                                <i className={`fas ${showCheckoutDetails ? 'fa-chevron-up' : 'fa-chevron-down'}`}></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    {showCheckoutDetails && (
+                        <div className="rounded-2xl border border-yellow-500/30 bg-black/30 p-4 text-xs uppercase tracking-wide space-y-2">
+                            <div className="text-slate-200">{checkoutAdvice.message}</div>
+                            {checkoutAdvice.alternatives.length > 0 && (
+                                <div className="text-slate-300">Vaihtoehdot: {checkoutAdvice.alternatives.slice(0, 3).join(' | ')}</div>
+                            )}
+                            {checkoutAdvice.setup && <div className="text-slate-300">Setup: {checkoutAdvice.setup}</div>}
+                            {checkoutAdvice.missPlan.length > 0 && (
+                                <div className="text-slate-400">
+                                    {checkoutAdvice.missPlan.map((plan, idx) => (
+                                        <div key={idx}>{plan.label}: {plan.route}</div>
+                                    ))}
+                                </div>
+                            )}
+                            <div className="text-[10px] text-slate-400 normal-case">
+                                Double-out: lopetus vain tuplalla tai BULL 50:llä. 25 ei ole checkout.
+                            </div>
+                        </div>
+                    )}
                     <div className="flex-1 flex flex-col items-center justify-center gap-4 bg-white/5 rounded-3xl border border-white/10">
                         {winnerOfLeg !== null ? (
                             <div className="text-center animate-bounce">
