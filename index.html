@@ -164,6 +164,21 @@
         return String(value);
     };
 
+    const setupThrowLabel = (value) => {
+        if (value >= 1 && value <= 20) return `S${value}`;
+        if (value === 25) return '25';
+        if (value === 50) return 'BULL';
+        if (value <= 60 && value % 3 === 0) return `T${value / 3}`;
+        if (value <= 40 && value % 2 === 0) return `D${value / 2}`;
+        return String(value);
+    };
+
+    const preferredDoubleLabel = (value) => {
+        if (value === 50) return 'BULL';
+        if (value > 1 && value <= 40 && value % 2 === 0) return `D${value / 2}`;
+        return String(value);
+    };
+
     const FINISH_SEGMENTS = [
         ...Array.from({ length: 20 }, (_, i) => ({ score: (i + 1) * 3, label: `T${i + 1}`, isDouble: false })),
         ...Array.from({ length: 20 }, (_, i) => ({ score: (i + 1) * 2, label: `D${i + 1}`, isDouble: true })),
@@ -196,10 +211,26 @@
     };
 
     const getSetupSuggestion = (score) => {
+        const options = [];
+
         for (const target of FAVORITE_DOUBLES) {
             const setup = score - target;
-            if (setup > 0 && setup <= 60) return `Pelaa ensin ${scoreLabel(setup)} jättääksesi ${scoreLabel(target)}.`;
+            if (setup > 0 && setup <= 60) {
+                options.push({
+                    throwLabel: setupThrowLabel(setup),
+                    leaveLabel: preferredDoubleLabel(target),
+                });
+            }
         }
+
+        if (options.length > 1) {
+            return `Pelaa setup: ${options[0].throwLabel} jättää ${options[0].leaveLabel} tai ${options[1].throwLabel} jättää ${options[1].leaveLabel}.`;
+        }
+
+        if (options.length === 1) {
+            return `Pelaa setup: ${options[0].throwLabel} jättää ${options[0].leaveLabel}.`;
+        }
+
         return 'Pelaa korkea setup (T20/T19) ja vältä 1 tai bust.';
     };
 
