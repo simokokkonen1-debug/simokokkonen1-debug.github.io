@@ -754,11 +754,6 @@
 
         const dartsLeft = 3 - dartInTurn;
         const checkoutAdvice = useMemo(() => getCheckoutAdvice(currentScore, dartsLeft), [currentScore, dartsLeft]);
-        const [showCheckoutDetails, setShowCheckoutDetails] = useState(false);
-
-        useEffect(() => {
-            setShowCheckoutDetails(false);
-        }, [currentScore, turn, dartInTurn]);
 
         const handleDartInput = (rawVal) => {
             if (winnerOfLeg !== null) return;
@@ -950,44 +945,24 @@
                         <div className={`p-6 rounded-3xl border-4 ${turn === 0 ? 'border-yellow-500 bg-yellow-500/10' : 'border-white/5 opacity-30'}`}><div className="text-7xl font-mono font-black text-center">{p1Score}</div></div>
                         <div className={`p-6 rounded-3xl border-4 ${turn === 1 ? 'border-yellow-500 bg-yellow-500/10' : 'border-white/5 opacity-30'}`}><div className="text-7xl font-mono font-black text-center">{p2Score}</div></div>
                     </div>
-                    <div className="rounded-2xl border border-yellow-500/30 bg-yellow-500/5 p-4 text-xs uppercase tracking-wide">
-                        <div className="flex items-start justify-between gap-3">
-                            <div className="space-y-1">
-                                <div className="font-black text-yellow-400">Checkout-ehdotus ({currentScore})</div>
-                                {checkoutAdvice.best ? (
-                                    <div className="text-white font-black text-base">{checkoutAdvice.best}</div>
-                                ) : (
-                                    <div className="text-slate-200 font-bold">{checkoutAdvice.message}</div>
-                                )}
-                            </div>
-                            <button
-                                onClick={() => setShowCheckoutDetails((prev) => !prev)}
-                                className="h-8 w-8 shrink-0 rounded-full border border-yellow-500/40 bg-black/20 text-yellow-300 hover:bg-black/35 transition-all"
-                                aria-label={showCheckoutDetails ? 'Piilota checkout-vaihtoehdot' : 'Näytä lisää checkout-vaihtoehtoja'}
-                            >
-                                <i className={`fas ${showCheckoutDetails ? 'fa-chevron-up' : 'fa-chevron-down'}`}></i>
-                            </button>
-                        </div>
-
-                        {showCheckoutDetails && (
-                            <div className="mt-3 space-y-2 border-t border-yellow-500/20 pt-3">
-                                <div className="text-slate-200">{checkoutAdvice.message}</div>
-                                {checkoutAdvice.alternatives.length > 0 && (
-                                    <div className="text-slate-300">Vaihtoehdot: {checkoutAdvice.alternatives.slice(0, 3).join(' | ')}</div>
-                                )}
-                                {checkoutAdvice.setup && <div className="text-slate-300">Setup: {checkoutAdvice.setup}</div>}
-                                {checkoutAdvice.missPlan.length > 0 && (
-                                    <div className="text-slate-400">
-                                        {checkoutAdvice.missPlan.map((plan, idx) => (
-                                            <div key={idx}>{plan.label}: {plan.route}</div>
-                                        ))}
-                                    </div>
-                                )}
-                                <div className="text-[10px] text-slate-400 normal-case">
-                                    Double-out: lopetus vain tuplalla tai BULL 50:llä. 25 ei ole checkout.
-                                </div>
+                    <div className="rounded-2xl border border-yellow-500/30 bg-yellow-500/5 p-4 text-xs uppercase tracking-wide space-y-2">
+                        <div className="font-black text-yellow-400">Checkout-ehdotus ({currentScore})</div>
+                        <div className="text-slate-200">{checkoutAdvice.message}</div>
+                        {checkoutAdvice.best && <div className="text-white font-bold">Paras: {checkoutAdvice.best}</div>}
+                        {checkoutAdvice.alternatives.length > 0 && (
+                            <div className="text-slate-300">Vaihtoehdot: {checkoutAdvice.alternatives.slice(0, 2).join(' | ')}</div>
+                        )}
+                        {checkoutAdvice.setup && <div className="text-slate-300">Setup: {checkoutAdvice.setup}</div>}
+                        {checkoutAdvice.missPlan.length > 0 && (
+                            <div className="text-slate-400">
+                                {checkoutAdvice.missPlan.map((plan, idx) => (
+                                    <div key={idx}>{plan.label}: {plan.route}</div>
+                                ))}
                             </div>
                         )}
+                        <div className="text-[10px] text-slate-400 normal-case">
+                            Double-out: lopetus vain tuplalla tai BULL 50:llä. 25 ei ole checkout.
+                        </div>
                     </div>
                     <div className="flex-1 flex flex-col items-center justify-center gap-4 bg-white/5 rounded-3xl border border-white/10">
                         {winnerOfLeg !== null ? (
