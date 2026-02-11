@@ -147,7 +147,7 @@
 <div id="root"></div>
 
 <script type="text/babel">
-    const { useState, useEffect, useMemo } = React;
+    const { useState, useEffect, useMemo, useRef } = React;
 
     const STARTING_SCORE = 301;
     const LEGS_TO_WIN = 3;
@@ -583,13 +583,13 @@
     }
 
     function DartsCalculator({ match, players, onClose, onSave }) {
+        const victoryAudioRef = useRef(null);
         const [p1Score, setP1Score] = useState(STARTING_SCORE);
         const [p2Score, setP2Score] = useState(STARTING_SCORE);
         const [legs, setLegs] = useState([match.s1, match.s2]);
         const [bust, setBust] = useState(false);
         const [winnerOfLeg, setWinnerOfLeg] = useState(null);
         const [isFinishingMatch, setIsFinishingMatch] = useState(false);
-        const [audioError, setAudioError] = useState('');
 
         const [initialStarter] = useState(() => (Math.random() < 0.5 ? 0 : 1));
         const [coinFlipLabel] = useState(() => (initialStarter === 0 ? players[match.p1] : players[match.p2]));
@@ -618,23 +618,25 @@
         const currentPlayerIdx = turn === 0 ? match.p1 : match.p2;
         const currentScore = turn === 0 ? p1Score : p2Score;
 
-        const playVictoryMusic = () => {
-            setAudioError('');
+        useEffect(() => {
             const audio = new Audio(VICTORY_MUSIC_SRC);
             audio.preload = 'auto';
+            victoryAudioRef.current = audio;
+
+            return () => {
+                if (!victoryAudioRef.current) return;
+                victoryAudioRef.current.pause();
+                victoryAudioRef.current = null;
+            };
+        }, []);
+
+        const playVictoryMusic = () => {
+            const audio = victoryAudioRef.current;
+            if (!audio) return;
+
             audio.currentTime = 0;
-
-            // Pidetään vahva viite toiston ajan, jotta ääni ei katkea heti näkymän vaihtuessa.
-            window.__teepeeVictoryAudio = audio;
-
-            audio.addEventListener('ended', () => {
-                if (window.__teepeeVictoryAudio === audio) {
-                    window.__teepeeVictoryAudio = null;
-                }
-            }, { once: true });
-
             audio.play().catch(() => {
-                setAudioError('Voittomusiikin toisto epäonnistui. Tarkista tiedosto assets/victory-music.mp3 ja selaimen äänioikeudet.');
+                // Musiikkitiedosto saattaa puuttua tai selaimen autoplay-rajoitukset estävät toiston.
             });
         };
 
@@ -741,10 +743,7 @@
 
             if (newLegs[winnerOfLeg] >= LEGS_TO_WIN) {
                 playVictoryMusic();
-                setIsFinishingMatch(true);
-                setTimeout(() => {
-                    onSave(match.id, newLegs[0], newLegs[1], updatedHistory);
-                }, 1400);
+                onSave(match.id, newLegs[0], newLegs[1], updatedHistory);
             } else {
                 setLegs(newLegs);
                 setHistory(updatedHistory);
@@ -820,7 +819,6 @@
                         {winnerOfLeg !== null ? (
                             <div className="text-center animate-bounce">
                                 <div className="text-yellow-500 text-4xl font-black mb-4 uppercase">LEG VOITETTU!</div>
-                                {audioError && <div className="text-[11px] text-red-300 mb-3 max-w-xl">{audioError}</div>}
                                 <button onClick={confirmLeg} disabled={isFinishingMatch} className={`bg-green-600 px-8 py-4 rounded-2xl font-black uppercase text-xl ${isFinishingMatch ? 'opacity-50 cursor-not-allowed' : ''}`}>
                                     {isFinishingMatch ? 'Päätetään ottelua...' : 'Jatka peliä'}
                                 </button>

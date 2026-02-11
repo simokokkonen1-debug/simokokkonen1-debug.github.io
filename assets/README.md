@@ -17,5 +17,3 @@ Jos haluat soittaa voittomusiikin ottelun päättyessä, lisää tähän kansioo
 Musiikki käynnistyy automaattisesti, kun jompikumpi pelaaja voittaa ottelun (best of 5, eli 3 legiä).
 
 Lisäksi sovellus näyttää lyhyen "Ottelu voitettu" -animaation ennen kuin otteluikkuna sulkeutuu, jotta musiikki ehtii varmasti käynnistyä.
-
-Jos ääntä ei kuulu, varmista lisäksi että selainvälilehti ei ole mykistetty ja että tiedosto on oikea äänitiedosto (ei esim. väärällä päätteellä nimetty tiedosto).
