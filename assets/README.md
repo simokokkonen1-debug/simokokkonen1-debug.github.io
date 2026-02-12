@@ -26,4 +26,4 @@ Jos haluat näyttää turnauksen voittajan animaation taustalla nousevan palkinn
 
 - `assets/tournament-prize.png`
 
-Kuva näytetään automaattisesti vain, jos tiedosto löytyy oikealla nimellä.
+Kuva näytetään automaattisesti vain finaaliottelun ratkettua, jos tiedosto löytyy oikealla nimellä.

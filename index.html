@@ -137,38 +137,38 @@
 
         .winner-name-banner {
             position: relative;
-            z-index: 2;
+            z-index: 3;
             animation: winnerRise 0.8s ease-out forwards;
             text-shadow: 0 10px 30px rgba(0, 0, 0, 0.55);
         }
 
         .tournament-prize-glow {
             position: absolute;
-            width: min(72vw, 340px);
-            height: min(72vw, 340px);
+            width: min(62vw, 260px);
+            height: min(62vw, 260px);
             border-radius: 9999px;
-            background: radial-gradient(circle, rgba(231, 227, 89, 0.3) 0%, rgba(231, 227, 89, 0.04) 55%, rgba(0, 0, 0, 0) 70%);
-            bottom: 14%;
+            background: radial-gradient(circle, rgba(231, 227, 89, 0.32) 0%, rgba(231, 227, 89, 0.06) 52%, rgba(0, 0, 0, 0) 72%);
+            top: 42%;
             left: 50%;
-            transform: translateX(-50%);
-            z-index: 0;
+            transform: translate(-50%, 30px) scale(0.8);
+            z-index: 1;
             pointer-events: none;
-            animation: prizeGlowPulse 2.2s ease-in-out infinite;
+            animation: prizeRiseGlow 1.2s ease-out 0.18s forwards, prizeGlowPulse 2.2s ease-in-out 1.3s infinite;
         }
 
         .tournament-prize-image {
             position: absolute;
-            width: min(68vw, 280px);
-            max-height: 62vh;
+            width: min(56vw, 220px);
+            max-height: 44vh;
             object-fit: contain;
             left: 50%;
-            bottom: 8%;
-            transform: translate(-50%, 38px) scale(0.88);
+            top: 42%;
+            transform: translate(-50%, 48px) scale(0.76);
             opacity: 0;
-            filter: drop-shadow(0 20px 28px rgba(0, 0, 0, 0.52));
-            z-index: 1;
+            filter: drop-shadow(0 18px 26px rgba(0, 0, 0, 0.52));
+            z-index: 2;
             pointer-events: none;
-            animation: prizeRise 1s ease-out 0.15s forwards;
+            animation: prizeRise 1.15s ease-out 0.12s forwards;
         }
 
         @keyframes winnerRise {
@@ -178,14 +178,19 @@
         }
 
         @keyframes prizeRise {
-            0% { opacity: 0; transform: translate(-50%, 38px) scale(0.88); }
-            70% { opacity: 1; transform: translate(-50%, -8px) scale(1.01); }
-            100% { opacity: 0.93; transform: translate(-50%, 0) scale(1); }
+            0% { opacity: 0; transform: translate(-50%, 48px) scale(0.76); }
+            68% { opacity: 1; transform: translate(-50%, -102px) scale(1.01); }
+            100% { opacity: 0.95; transform: translate(-50%, -120px) scale(1); }
+        }
+
+        @keyframes prizeRiseGlow {
+            0% { opacity: 0; transform: translate(-50%, 30px) scale(0.8); }
+            100% { opacity: 0.82; transform: translate(-50%, -102px) scale(1); }
         }
 
         @keyframes prizeGlowPulse {
-            0%, 100% { opacity: 0.55; transform: translateX(-50%) scale(1); }
-            50% { opacity: 0.95; transform: translateX(-50%) scale(1.08); }
+            0%, 100% { opacity: 0.62; transform: translate(-50%, -102px) scale(1); }
+            50% { opacity: 0.95; transform: translate(-50%, -102px) scale(1.08); }
         }
 
         @keyframes fadeInOut {
@@ -928,6 +933,7 @@
 
         const currentPlayerIdx = turn === 0 ? match.p1 : match.p2;
         const currentScore = turn === 0 ? p1Score : p2Score;
+        const showTournamentPrize = hasTournamentPrize && match.id === 'f';
 
         useEffect(() => {
             const audio = new Audio(VICTORY_MUSIC_SRC);
@@ -1192,16 +1198,16 @@
                 {bust && <div className="absolute inset-0 z-[60] flex items-center justify-center bg-black/60"><div className="bust-overlay text-9xl font-black text-red-500 italic">BUST!</div></div>}
                 {isFinishingMatch && (
                     <div className="absolute inset-0 z-[65] flex items-center justify-center bg-black/70 overflow-hidden">
-                        {hasTournamentPrize && (
+                        {showTournamentPrize && (
                             <>
                                 <div className="tournament-prize-glow" aria-hidden="true"></div>
                                 <img src={TOURNAMENT_PRIZE_SRC} alt="Turnauspalkinto" className="tournament-prize-image" />
                             </>
                         )}
-                        <div className="text-center px-6">
-                            <div className="text-yellow-400 text-4xl md:text-6xl font-black uppercase mb-4">Ottelu voitettu!</div>
+                        <div className="text-center px-6 relative z-[3]">
+                            <div className="relative z-[3] text-yellow-400 text-4xl md:text-6xl font-black uppercase mb-4">Ottelu voitettu!</div>
                             <div className="winner-name-banner text-white text-5xl md:text-8xl font-black uppercase tracking-wide">{players[winnerOfLeg === 0 ? match.p1 : match.p2]}</div>
-                            <div className="text-emerald-100 mt-4 uppercase tracking-[0.35em] text-xs md:text-sm">Mestari lavalla</div>
+                            <div className="relative z-[3] text-emerald-100 mt-4 uppercase tracking-[0.35em] text-xs md:text-sm">Mestari lavalla</div>
                         </div>
                     </div>
                 )}
