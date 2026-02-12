@@ -19,3 +19,11 @@ Musiikki käynnistyy automaattisesti, kun jompikumpi pelaaja voittaa ottelun (be
 Lisäksi sovellus näyttää lyhyen "Ottelu voitettu" -animaation ennen kuin otteluikkuna sulkeutuu, jotta musiikki ehtii varmasti käynnistyä.
 
 Jos ääntä ei kuulu, varmista lisäksi että selainvälilehti ei ole mykistetty ja että tiedosto on oikea äänitiedosto (ei esim. väärällä päätteellä nimetty tiedosto).
+
+## Turnausvoiton palkintokuva
+
+Jos haluat näyttää turnauksen voittajan animaation taustalla nousevan palkinnon, lisää tähän kansioon tiedosto:
+
+- `assets/tournament-prize.png`
+
+Kuva näytetään automaattisesti vain, jos tiedosto löytyy oikealla nimellä.
