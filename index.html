@@ -989,6 +989,7 @@
 
         const finishMatchWithCelebration = (winner, finalLegs, updatedHistory) => {
             if (isFinishingMatch) return;
+            setWinnerOfLeg(winner);
             setIsFinishingMatch(true);
 
             const audio = playVictoryMusic();
@@ -1014,6 +1015,20 @@
                 : 9000;
 
             celebrationTimeoutRef.current = setTimeout(complete, fallbackMs);
+        };
+
+        const handleForfeit = (forfeitingPlayer) => {
+            if (isFinishingMatch) return;
+
+            const winner = forfeitingPlayer === 0 ? 1 : 0;
+            const winnerName = players[winner === 0 ? match.p1 : match.p2];
+            const forfeitingName = players[forfeitingPlayer === 0 ? match.p1 : match.p2];
+
+            const confirmed = window.confirm(`${forfeitingName} luovuttaa ottelun. Hyväksytäänkö tulokseksi 3-0 (${winnerName})?`);
+            if (!confirmed) return;
+
+            const finalLegs = winner === 0 ? [LEGS_TO_WIN, 0] : [0, LEGS_TO_WIN];
+            finishMatchWithCelebration(winner, finalLegs, history);
         };
 
         const pushStep = (snapshot) => {
@@ -1223,6 +1238,22 @@
                     <div className="grid grid-cols-2 gap-4">
                         <div className={`p-6 rounded-3xl border-4 ${turn === 0 ? 'border-yellow-500 bg-yellow-500/10' : 'border-white/5 opacity-30'}`}><div className="text-7xl font-mono font-black text-center">{p1Score}</div></div>
                         <div className={`p-6 rounded-3xl border-4 ${turn === 1 ? 'border-yellow-500 bg-yellow-500/10' : 'border-white/5 opacity-30'}`}><div className="text-7xl font-mono font-black text-center">{p2Score}</div></div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                        <button
+                            onClick={() => handleForfeit(0)}
+                            disabled={isFinishingMatch}
+                            className={`dart-btn h-11 text-xs uppercase tracking-wide ${isFinishingMatch ? 'opacity-40 cursor-not-allowed' : 'text-red-300 border-red-500/30 bg-red-500/10 hover:bg-red-500/20'}`}
+                        >
+                            {players[match.p1]} luovuttaa
+                        </button>
+                        <button
+                            onClick={() => handleForfeit(1)}
+                            disabled={isFinishingMatch}
+                            className={`dart-btn h-11 text-xs uppercase tracking-wide ${isFinishingMatch ? 'opacity-40 cursor-not-allowed' : 'text-red-300 border-red-500/30 bg-red-500/10 hover:bg-red-500/20'}`}
+                        >
+                            {players[match.p2]} luovuttaa
+                        </button>
                     </div>
                     <div className="rounded-2xl border border-yellow-500/35 bg-yellow-500/10 px-4 py-3 text-xs uppercase tracking-wide">
                         <div className="flex items-center justify-between gap-3">
