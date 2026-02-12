@@ -131,6 +131,24 @@
             opacity: 0.5;
         }
 
+        .bracket-champion-card {
+            min-width: 240px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 0.9rem;
+            padding: 1.1rem;
+            text-align: center;
+        }
+
+        .bracket-champion-prize {
+            width: min(32vw, 160px);
+            max-height: 220px;
+            object-fit: contain;
+            filter: drop-shadow(0 14px 22px rgba(0, 0, 0, 0.45));
+        }
+
         .bust-overlay {
             animation: fadeInOut 1s forwards;
         }
@@ -148,9 +166,9 @@
             height: min(56vw, 220px);
             border-radius: 9999px;
             background: radial-gradient(circle, rgba(231, 227, 89, 0.32) 0%, rgba(231, 227, 89, 0.06) 52%, rgba(0, 0, 0, 0) 72%);
-            top: 48%;
+            top: 44%;
             left: 50%;
-            transform: translate(-50%, 22px) scale(0.72);
+            transform: translate(-50%, 8px) scale(0.72);
             z-index: 1;
             pointer-events: none;
             animation: prizeRiseGlow 1.2s ease-out 0.18s forwards, prizeGlowPulse 2.2s ease-in-out 1.3s infinite;
@@ -162,8 +180,8 @@
             max-height: 36vh;
             object-fit: contain;
             left: 50%;
-            top: 48%;
-            transform: translate(-50%, 44px) scale(0.68);
+            top: 44%;
+            transform: translate(-50%, 26px) scale(0.68);
             opacity: 0;
             filter: drop-shadow(0 18px 26px rgba(0, 0, 0, 0.52));
             z-index: 2;
@@ -178,19 +196,19 @@
         }
 
         @keyframes prizeRise {
-            0% { opacity: 0; transform: translate(-50%, 44px) scale(0.68); }
-            68% { opacity: 1; transform: translate(-50%, -230px) scale(1.01); }
-            100% { opacity: 0.95; transform: translate(-50%, -260px) scale(1); }
+            0% { opacity: 0; transform: translate(-50%, 26px) scale(0.68); }
+            68% { opacity: 1; transform: translate(-50%, -292px) scale(1.01); }
+            100% { opacity: 0.95; transform: translate(-50%, -326px) scale(1); }
         }
 
         @keyframes prizeRiseGlow {
-            0% { opacity: 0; transform: translate(-50%, 22px) scale(0.72); }
-            100% { opacity: 0.82; transform: translate(-50%, -224px) scale(1); }
+            0% { opacity: 0; transform: translate(-50%, 8px) scale(0.72); }
+            100% { opacity: 0.82; transform: translate(-50%, -286px) scale(1); }
         }
 
         @keyframes prizeGlowPulse {
-            0%, 100% { opacity: 0.62; transform: translate(-50%, -224px) scale(1); }
-            50% { opacity: 0.95; transform: translate(-50%, -224px) scale(1.08); }
+            0%, 100% { opacity: 0.62; transform: translate(-50%, -286px) scale(1); }
+            50% { opacity: 0.95; transform: translate(-50%, -286px) scale(1.08); }
         }
 
         @keyframes fadeInOut {
@@ -224,8 +242,21 @@
         'Pelaaja 7',
         'Pelaaja 8',
     ];
-    const DEFAULT_GROUP_A = [0, 1, 2, 3];
-    const DEFAULT_GROUP_B = [4, 5, 6, 7];
+    const clampEvenPlayerCount = (value) => {
+        const normalized = Number(value);
+        if (Number.isNaN(normalized)) return 8;
+        const clamped = Math.min(8, Math.max(2, normalized));
+        return clamped % 2 === 0 ? clamped : clamped - 1;
+    };
+
+    const createPlayerNames = (count) => DEFAULT_PLAYERS.slice(0, count);
+    const createBalancedGroups = (count) => {
+        const midpoint = count / 2;
+        return {
+            groupA: Array.from({ length: midpoint }, (_, i) => i),
+            groupB: Array.from({ length: midpoint }, (_, i) => i + midpoint),
+        };
+    };
 
     const scoreLabel = (value) => {
         if (value === 50) return 'BULL';
@@ -468,22 +499,45 @@
     }
 
     function App() {
+        const defaultPlayerCount = 8;
+        const initialGroups = createBalancedGroups(defaultPlayerCount);
         const [view, setView] = useState('setup');
         const [tab, setTab] = useState('schedule');
-        const [players, setPlayers] = useState(DEFAULT_PLAYERS);
-        const [groupA, setGroupA] = useState(DEFAULT_GROUP_A);
-        const [groupB, setGroupB] = useState(DEFAULT_GROUP_B);
+        const [playerCount, setPlayerCount] = useState(defaultPlayerCount);
+        const [players, setPlayers] = useState(createPlayerNames(defaultPlayerCount));
+        const [groupA, setGroupA] = useState(initialGroups.groupA);
+        const [groupB, setGroupB] = useState(initialGroups.groupB);
         const [groupMatches, setGroupMatches] = useState([]);
         const [bracketMatches, setBracketMatches] = useState([]);
         const [activeMatch, setActiveMatch] = useState(null);
 
-        const createInitialBracketMatches = () => ([
-            createMatch({ id: 'wc1', round: 'WC', p1: null, p2: null, winner: null, label: 'Wild Card 1' }),
-            createMatch({ id: 'wc2', round: 'WC', p1: null, p2: null, winner: null, label: 'Wild Card 2' }),
-            createMatch({ id: 'sf1', round: 'SF', p1: null, p2: null, winner: null, label: 'Välierä 1' }),
-            createMatch({ id: 'sf2', round: 'SF', p1: null, p2: null, winner: null, label: 'Välierä 2' }),
-            createMatch({ id: 'f', round: 'F', p1: null, p2: null, winner: null, label: 'Finaali' }),
-        ]);
+        const hasGroups = playerCount >= 6;
+
+        useEffect(() => {
+            if (!hasGroups && tab === 'groups') setTab('schedule');
+        }, [hasGroups, tab]);
+
+        const createInitialBracketMatches = (count, seededPlayers) => {
+            if (count === 2) {
+                return [createMatch({ id: 'f', round: 'F', p1: seededPlayers[0], p2: seededPlayers[1], winner: null, label: 'Finaali' })];
+            }
+
+            if (count === 4) {
+                return [
+                    createMatch({ id: 'sf1', round: 'SF', p1: seededPlayers[0], p2: seededPlayers[3], winner: null, label: 'Välierä 1' }),
+                    createMatch({ id: 'sf2', round: 'SF', p1: seededPlayers[1], p2: seededPlayers[2], winner: null, label: 'Välierä 2' }),
+                    createMatch({ id: 'f', round: 'F', p1: null, p2: null, winner: null, label: 'Finaali' }),
+                ];
+            }
+
+            return [
+                createMatch({ id: 'wc1', round: 'WC', p1: null, p2: null, winner: null, label: 'Wild Card 1' }),
+                createMatch({ id: 'wc2', round: 'WC', p1: null, p2: null, winner: null, label: 'Wild Card 2' }),
+                createMatch({ id: 'sf1', round: 'SF', p1: null, p2: null, winner: null, label: 'Välierä 1' }),
+                createMatch({ id: 'sf2', round: 'SF', p1: null, p2: null, winner: null, label: 'Välierä 2' }),
+                createMatch({ id: 'f', round: 'F', p1: null, p2: null, winner: null, label: 'Finaali' }),
+            ];
+        };
 
         useEffect(() => {
             try {
@@ -493,10 +547,19 @@
                 const parsed = JSON.parse(cached);
                 if (!parsed || typeof parsed !== 'object') return;
 
+                const cachedCount = clampEvenPlayerCount(parsed.playerCount ?? parsed.players?.length ?? defaultPlayerCount);
+                const fallbackPlayers = createPlayerNames(cachedCount);
+                const cachedPlayers = Array.isArray(parsed.players) ? parsed.players.slice(0, cachedCount) : fallbackPlayers;
+                while (cachedPlayers.length < cachedCount) {
+                    cachedPlayers.push(fallbackPlayers[cachedPlayers.length]);
+                }
+                const fallbackGroups = createBalancedGroups(cachedCount);
+
                 if (parsed.view === 'setup' || parsed.view === 'tournament') setView(parsed.view);
-                if (Array.isArray(parsed.players) && parsed.players.length === 8) setPlayers(parsed.players);
-                if (Array.isArray(parsed.groupA) && parsed.groupA.length === 4) setGroupA(parsed.groupA);
-                if (Array.isArray(parsed.groupB) && parsed.groupB.length === 4) setGroupB(parsed.groupB);
+                setPlayerCount(cachedCount);
+                setPlayers(cachedPlayers);
+                setGroupA(Array.isArray(parsed.groupA) && parsed.groupA.length === cachedCount / 2 ? parsed.groupA : fallbackGroups.groupA);
+                setGroupB(Array.isArray(parsed.groupB) && parsed.groupB.length === cachedCount / 2 ? parsed.groupB : fallbackGroups.groupB);
                 if (Array.isArray(parsed.groupMatches)) setGroupMatches(parsed.groupMatches);
                 if (Array.isArray(parsed.bracketMatches)) setBracketMatches(parsed.bracketMatches);
                 if (['schedule', 'groups', 'bracket', 'stats'].includes(parsed.tab)) setTab(parsed.tab);
@@ -510,6 +573,7 @@
                 const snapshot = {
                     view,
                     tab,
+                    playerCount,
                     players,
                     groupA,
                     groupB,
@@ -520,12 +584,33 @@
             } catch (error) {
                 console.warn('Turnauksen välimuistiin tallennus epäonnistui.', error);
             }
-        }, [view, tab, players, groupA, groupB, groupMatches, bracketMatches]);
+        }, [view, tab, playerCount, players, groupA, groupB, groupMatches, bracketMatches]);
+
+        const updatePlayerCount = (nextCount) => {
+            const count = clampEvenPlayerCount(nextCount);
+            const nextPlayers = createPlayerNames(count).map((name, idx) => players[idx] ?? name);
+            const nextGroups = createBalancedGroups(count);
+            setPlayerCount(count);
+            setPlayers(nextPlayers);
+            setGroupA(nextGroups.groupA);
+            setGroupB(nextGroups.groupB);
+            setGroupMatches([]);
+            setBracketMatches([]);
+            setActiveMatch(null);
+            setView('setup');
+            setTab('schedule');
+        };
 
         const shuffleGroups = () => {
-            const shuffledIndices = [...Array(players.length).keys()].sort(() => Math.random() - 0.5);
-            setGroupA(shuffledIndices.slice(0, 4));
-            setGroupB(shuffledIndices.slice(4, 8));
+            const shuffledIndices = [...Array(playerCount).keys()].sort(() => Math.random() - 0.5);
+            if (hasGroups) {
+                const midpoint = playerCount / 2;
+                setGroupA(shuffledIndices.slice(0, midpoint));
+                setGroupB(shuffledIndices.slice(midpoint));
+            } else {
+                const shuffledPlayers = shuffledIndices.map((idx) => players[idx]);
+                setPlayers(shuffledPlayers);
+            }
             confetti({ particleCount: 50, spread: 60, origin: { y: 0.8 } });
         };
 
@@ -540,24 +625,33 @@
                 return m;
             };
 
-            setGroupMatches(
-                [...createMatches(groupA, 'A'), ...createMatches(groupB, 'B')].map((m, i) => ({
-                    ...m,
-                    id: `m-${i}`,
-                }))
-            );
+            const seededPlayers = [...Array(playerCount).keys()].sort(() => Math.random() - 0.5);
 
-            setBracketMatches(createInitialBracketMatches());
+            if (hasGroups) {
+                setGroupMatches(
+                    [...createMatches(groupA, 'A'), ...createMatches(groupB, 'B')].map((m, i) => ({
+                        ...m,
+                        id: `m-${i}`,
+                    }))
+                );
+                setBracketMatches(createInitialBracketMatches(playerCount, seededPlayers));
+            } else {
+                setGroupMatches([]);
+                setBracketMatches(createInitialBracketMatches(playerCount, seededPlayers));
+            }
+
             setView('tournament');
             setTab('schedule');
         };
 
         const startNewTournament = () => {
+            const defaultGroups = createBalancedGroups(defaultPlayerCount);
             setView('setup');
             setTab('schedule');
-            setPlayers(DEFAULT_PLAYERS);
-            setGroupA(DEFAULT_GROUP_A);
-            setGroupB(DEFAULT_GROUP_B);
+            setPlayerCount(defaultPlayerCount);
+            setPlayers(createPlayerNames(defaultPlayerCount));
+            setGroupA(defaultGroups.groupA);
+            setGroupB(defaultGroups.groupB);
             setGroupMatches([]);
             setBracketMatches([]);
             setActiveMatch(null);
@@ -565,27 +659,28 @@
         };
 
         useEffect(() => {
-            if (view !== 'tournament') return;
+            if (!hasGroups || view !== 'tournament') return;
             const standingsA = getStandings(players, groupMatches, groupA, 'A');
             const standingsB = getStandings(players, groupMatches, groupB, 'B');
 
             setBracketMatches((prev) => {
                 const next = [...prev];
+                if (next.length < 5) return next;
 
-                if (standingsA[0].played > 0) next[2].p1 = standingsA[0].idx;
-                if (standingsB[0].played > 0) next[3].p1 = standingsB[0].idx;
+                if (standingsA[0]?.played > 0) next[2].p1 = standingsA[0].idx;
+                if (standingsB[0]?.played > 0) next[3].p1 = standingsB[0].idx;
 
-                if (standingsA[1].played > 0 && standingsB[2].played > 0) {
+                if (standingsA[1]?.played > 0 && standingsB[2]?.played > 0) {
                     next[0].p1 = standingsA[1].idx;
                     next[0].p2 = standingsB[2].idx;
                 }
-                if (standingsB[1].played > 0 && standingsA[2].played > 0) {
+                if (standingsB[1]?.played > 0 && standingsA[2]?.played > 0) {
                     next[1].p1 = standingsB[1].idx;
                     next[1].p2 = standingsA[2].idx;
                 }
                 return next;
             });
-        }, [groupMatches, view, players, groupA, groupB]);
+        }, [groupMatches, view, players, groupA, groupB, hasGroups]);
 
         const handleMatchEnd = (id, s1, s2, history) => {
             if (id.startsWith('m-')) {
@@ -594,18 +689,53 @@
                 setBracketMatches((prev) => {
                     const next = [...prev];
                     const idx = next.findIndex((m) => m.id === id);
+                    if (idx === -1) return next;
+
                     const winner = s1 > s2 ? next[idx].p1 : next[idx].p2;
                     next[idx] = { ...next[idx], s1, s2, winner, history, played: true };
-                    if (id === 'wc1') next[3].p2 = winner;
-                    if (id === 'wc2') next[2].p2 = winner;
-                    if (id === 'sf1') next[4].p1 = winner;
-                    if (id === 'sf2') next[4].p2 = winner;
+
+                    if (id === 'wc1' && next[3]) next[3].p2 = winner;
+                    if (id === 'wc2' && next[2]) next[2].p2 = winner;
+                    if (id === 'sf1') {
+                        if (playerCount === 4) next[2].p1 = winner;
+                        else if (next[4]) next[4].p1 = winner;
+                    }
+                    if (id === 'sf2') {
+                        if (playerCount === 4) next[2].p2 = winner;
+                        else if (next[4]) next[4].p2 = winner;
+                    }
                     if (id === 'f' && winner !== null) confetti({ particleCount: 200, spread: 70, origin: { y: 0.6 } });
                     return next;
                 });
             }
             setActiveMatch(null);
         };
+
+        const bracketRounds = useMemo(() => {
+            if (playerCount === 2) {
+                return [{ key: 'F', title: 'Finaali', matches: bracketMatches.filter((m) => m.round === 'F'), isFinal: true }];
+            }
+
+            if (playerCount === 4) {
+                return [
+                    { key: 'SF', title: 'Välierät', matches: bracketMatches.filter((m) => m.round === 'SF') },
+                    { key: 'F', title: 'Finaali', matches: bracketMatches.filter((m) => m.round === 'F'), isFinal: true },
+                ];
+            }
+
+            return [
+                { key: 'WC', title: 'Wild Cards', matches: bracketMatches.filter((m) => m.round === 'WC') },
+                { key: 'SF', title: 'Välierät', matches: bracketMatches.filter((m) => m.round === 'SF') },
+                { key: 'F', title: 'Finaali', matches: bracketMatches.filter((m) => m.round === 'F'), isFinal: true },
+            ];
+        }, [bracketMatches, playerCount]);
+
+
+        const tournamentWinnerName = useMemo(() => {
+            const finalMatch = bracketMatches.find((m) => m.round === 'F');
+            if (!finalMatch || !finalMatch.played || finalMatch.winner === null) return null;
+            return players[finalMatch.winner] ?? null;
+        }, [bracketMatches, players]);
 
         const playerStats = useMemo(() => {
             const stats = players.map((name, idx) => ({
@@ -675,38 +805,71 @@
                                 <i className="fas fa-random mr-2"></i>ARVO LOHKOT
                             </button>
                         </div>
-                        <div className="grid grid-cols-2 gap-4 mb-8">
-                            <div className="space-y-2">
-                                <div className="text-[10px] font-bold text-yellow-500 uppercase ml-1">Lohko A</div>
-                                {groupA.map((idx, i) => (
-                                    <input
-                                        key={i}
-                                        className="w-full bg-black/40 border border-white/5 p-3 rounded-xl text-white font-bold focus:border-yellow-500 outline-none"
-                                        value={players[idx]}
-                                        onChange={(e) => {
-                                            const n = [...players];
-                                            n[idx] = e.target.value;
-                                            setPlayers(n);
-                                        }}
-                                    />
-                                ))}
-                            </div>
-                            <div className="space-y-2">
-                                <div className="text-[10px] font-bold text-yellow-500 uppercase ml-1">Lohko B</div>
-                                {groupB.map((idx, i) => (
-                                    <input
-                                        key={i}
-                                        className="w-full bg-black/40 border border-white/5 p-3 rounded-xl text-white font-bold focus:border-yellow-500 outline-none"
-                                        value={players[idx]}
-                                        onChange={(e) => {
-                                            const n = [...players];
-                                            n[idx] = e.target.value;
-                                            setPlayers(n);
-                                        }}
-                                    />
-                                ))}
-                            </div>
+                        <div className="mb-5">
+                            <label className="text-[10px] font-bold text-yellow-500 uppercase ml-1 block mb-2">Pelaajamäärä (2-8, vain parillinen)</label>
+                            <select
+                                value={playerCount}
+                                onChange={(e) => updatePlayerCount(Number(e.target.value))}
+                                className="w-full bg-black/40 border border-white/5 p-3 rounded-xl text-white font-bold focus:border-yellow-500 outline-none"
+                            >
+                                {[2, 4, 6, 8].map((count) => <option key={count} value={count}>{count}</option>)}
+                            </select>
                         </div>
+
+                        {hasGroups ? (
+                            <div className="grid grid-cols-2 gap-4 mb-4">
+                                <div className="space-y-2">
+                                    <div className="text-[10px] font-bold text-yellow-500 uppercase ml-1">Lohko A</div>
+                                    {groupA.map((idx, i) => (
+                                        <input
+                                            key={i}
+                                            className="w-full bg-black/40 border border-white/5 p-3 rounded-xl text-white font-bold focus:border-yellow-500 outline-none"
+                                            value={players[idx]}
+                                            onChange={(e) => {
+                                                const n = [...players];
+                                                n[idx] = e.target.value;
+                                                setPlayers(n);
+                                            }}
+                                        />
+                                    ))}
+                                </div>
+                                <div className="space-y-2">
+                                    <div className="text-[10px] font-bold text-yellow-500 uppercase ml-1">Lohko B</div>
+                                    {groupB.map((idx, i) => (
+                                        <input
+                                            key={i}
+                                            className="w-full bg-black/40 border border-white/5 p-3 rounded-xl text-white font-bold focus:border-yellow-500 outline-none"
+                                            value={players[idx]}
+                                            onChange={(e) => {
+                                                const n = [...players];
+                                                n[idx] = e.target.value;
+                                                setPlayers(n);
+                                            }}
+                                        />
+                                    ))}
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="space-y-2 mb-4">
+                                {players.map((name, idx) => (
+                                    <input
+                                        key={idx}
+                                        className="w-full bg-black/40 border border-white/5 p-3 rounded-xl text-white font-bold focus:border-yellow-500 outline-none"
+                                        value={name}
+                                        onChange={(e) => {
+                                            const n = [...players];
+                                            n[idx] = e.target.value;
+                                            setPlayers(n);
+                                        }}
+                                    />
+                                ))}
+                            </div>
+                        )}
+
+                        <p className="text-xs text-emerald-200/80 mb-5">
+                            Formaatti: {playerCount === 2 ? 'suoraan finaali' : playerCount === 4 ? 'välierät + finaali' : `2 lohkoa (${playerCount / 2} pelaajaa/lohko) + pudotuspelit`}.
+                        </p>
+
                         <button onClick={startTournament} className="w-full py-5 bg-yellow-500 hover:bg-yellow-400 text-black font-black uppercase rounded-2xl text-xl shadow-lg transition-all active:scale-95">
                             Aloita Turnaus
                         </button>
@@ -729,7 +892,7 @@
                         <div className="flex gap-4">
                             {[
                                 { id: 'schedule', label: 'Pelit' },
-                                { id: 'groups', label: 'Lohkot' },
+                                ...(hasGroups ? [{ id: 'groups', label: 'Lohkot' }] : []),
                                 { id: 'bracket', label: 'Kaavio' },
                                 { id: 'stats', label: 'Tilastot' },
                             ].map((t) => (
@@ -759,7 +922,7 @@
                                     <div className="text-2xl font-mono font-black text-yellow-500 bg-black/40 px-4 py-2 rounded-xl">{m.played ? `${m.s1}-${m.s2}` : 'PELAA'}</div>
                                 </div>
                             ))}
-                            <div className="col-span-full border-t border-white/10 my-4 pt-4">
+                            <div className={`col-span-full ${groupMatches.length > 0 ? 'border-t border-white/10 my-4 pt-4' : ''}`}>
                                 <h3 className="text-xs font-black uppercase text-slate-500 mb-4">Pudotuspelit</h3>
                                 <div className="grid md:grid-cols-2 gap-4">
                                     {bracketMatches.map((m) => (
@@ -797,7 +960,7 @@
                                         </thead>
                                         <tbody>
                                         {getStandings(players, groupMatches, g.indices, g.label).map((s, i) => (
-                                            <tr key={i} className={`border-t border-white/5 ${i === 3 ? 'opacity-30' : ''}`}>
+                                            <tr key={i} className={`border-t border-white/5 ${i === g.indices.length - 1 ? 'opacity-30' : ''}`}>
                                                 <td className="py-4 text-sm font-black">{s.name}</td>
                                                 <td className="py-4 text-center text-yellow-500 text-lg">{s.wins}</td>
                                                 <td className="py-4 text-center font-mono text-slate-400">{s.legsDiff > 0 ? `+${s.legsDiff}` : s.legsDiff}</td>
@@ -811,26 +974,25 @@
                     )}
                     {tab === 'bracket' && (
                         <div className="bracket-container">
-                            <div className="bracket-round">
-                                <div className="text-[10px] font-black text-slate-600 uppercase text-center mb-2">Wild Cards</div>
-                                {[bracketMatches[0], bracketMatches[1]].map((m) => (
-                                    <div key={m.id} className="bracket-connector">
-                                        <MatchBox m={m} players={players} onClick={() => m.p1 !== null && m.p2 !== null && setActiveMatch(m)} />
+                            {bracketRounds.map((round, roundIdx) => (
+                                <div key={round.key} className="bracket-round">
+                                    <div className={`text-[10px] font-black uppercase text-center mb-2 ${round.isFinal ? 'text-yellow-500' : 'text-slate-600'}`}>{round.title}</div>
+                                    {round.matches.map((m) => (
+                                        <div key={m.id} className={roundIdx < bracketRounds.length - 1 || tournamentWinnerName ? 'bracket-connector' : ''}>
+                                            <MatchBox m={m} players={players} onClick={() => m.p1 !== null && m.p2 !== null && setActiveMatch(m)} isFinal={Boolean(round.isFinal)} />
+                                        </div>
+                                    ))}
+                                </div>
+                            ))}
+                            {tournamentWinnerName && (
+                                <div className="bracket-round">
+                                    <div className="text-[10px] font-black text-yellow-500 uppercase text-center mb-2">Turnausvoittaja</div>
+                                    <div className="match-card bracket-champion-card rounded-2xl border-yellow-500/40 bg-yellow-500/10">
+                                        <img src={TOURNAMENT_PRIZE_SRC} alt="Turnauspalkinto" className="bracket-champion-prize" />
+                                        <div className="text-base md:text-xl font-black uppercase text-white tracking-wide">{tournamentWinnerName}</div>
                                     </div>
-                                ))}
-                            </div>
-                            <div className="bracket-round">
-                                <div className="text-[10px] font-black text-slate-600 uppercase text-center mb-2">Välierät</div>
-                                {[bracketMatches[2], bracketMatches[3]].map((m) => (
-                                    <div key={m.id} className="bracket-connector">
-                                        <MatchBox m={m} players={players} onClick={() => m.p1 !== null && m.p2 !== null && setActiveMatch(m)} />
-                                    </div>
-                                ))}
-                            </div>
-                            <div className="bracket-round">
-                                <div className="text-[10px] font-black text-yellow-500 uppercase text-center mb-2">Finaali</div>
-                                <MatchBox m={bracketMatches[4]} players={players} onClick={() => bracketMatches[4].p1 !== null && bracketMatches[4].p2 !== null && setActiveMatch(bracketMatches[4])} isFinal />
-                            </div>
+                                </div>
+                            )}
                         </div>
                     )}
                     {tab === 'stats' && (
