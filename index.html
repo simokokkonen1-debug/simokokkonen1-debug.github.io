@@ -163,8 +163,21 @@
     const STARTING_SCORE = 301;
     const LEGS_TO_WIN = 3;
     const VICTORY_MUSIC_SRC = 'assets/victory-music.mp3';
+    const TOURNAMENT_CACHE_KEY = 'teepee-darts-cup-state-v1';
     const BOGEY_NUMBERS = new Set([169, 168, 166, 165, 163, 162, 159]);
     const FAVORITE_DOUBLES = [40, 32, 24, 16, 20, 36, 12, 8, 4, 2];
+    const DEFAULT_PLAYERS = [
+        'Pelaaja 1',
+        'Pelaaja 2',
+        'Pelaaja 3',
+        'Pelaaja 4',
+        'Pelaaja 5',
+        'Pelaaja 6',
+        'Pelaaja 7',
+        'Pelaaja 8',
+    ];
+    const DEFAULT_GROUP_A = [0, 1, 2, 3];
+    const DEFAULT_GROUP_B = [4, 5, 6, 7];
 
     const scoreLabel = (value) => {
         if (value === 50) return 'BULL';
@@ -409,21 +422,57 @@
     function App() {
         const [view, setView] = useState('setup');
         const [tab, setTab] = useState('schedule');
-        const [players, setPlayers] = useState([
-            'Pelaaja 1',
-            'Pelaaja 2',
-            'Pelaaja 3',
-            'Pelaaja 4',
-            'Pelaaja 5',
-            'Pelaaja 6',
-            'Pelaaja 7',
-            'Pelaaja 8',
-        ]);
-        const [groupA, setGroupA] = useState([0, 1, 2, 3]);
-        const [groupB, setGroupB] = useState([4, 5, 6, 7]);
+        const [players, setPlayers] = useState(DEFAULT_PLAYERS);
+        const [groupA, setGroupA] = useState(DEFAULT_GROUP_A);
+        const [groupB, setGroupB] = useState(DEFAULT_GROUP_B);
         const [groupMatches, setGroupMatches] = useState([]);
         const [bracketMatches, setBracketMatches] = useState([]);
         const [activeMatch, setActiveMatch] = useState(null);
+
+        const createInitialBracketMatches = () => ([
+            createMatch({ id: 'wc1', round: 'WC', p1: null, p2: null, winner: null, label: 'Wild Card 1' }),
+            createMatch({ id: 'wc2', round: 'WC', p1: null, p2: null, winner: null, label: 'Wild Card 2' }),
+            createMatch({ id: 'sf1', round: 'SF', p1: null, p2: null, winner: null, label: 'Välierä 1' }),
+            createMatch({ id: 'sf2', round: 'SF', p1: null, p2: null, winner: null, label: 'Välierä 2' }),
+            createMatch({ id: 'f', round: 'F', p1: null, p2: null, winner: null, label: 'Finaali' }),
+        ]);
+
+        useEffect(() => {
+            try {
+                const cached = localStorage.getItem(TOURNAMENT_CACHE_KEY);
+                if (!cached) return;
+
+                const parsed = JSON.parse(cached);
+                if (!parsed || typeof parsed !== 'object') return;
+
+                if (parsed.view === 'setup' || parsed.view === 'tournament') setView(parsed.view);
+                if (Array.isArray(parsed.players) && parsed.players.length === 8) setPlayers(parsed.players);
+                if (Array.isArray(parsed.groupA) && parsed.groupA.length === 4) setGroupA(parsed.groupA);
+                if (Array.isArray(parsed.groupB) && parsed.groupB.length === 4) setGroupB(parsed.groupB);
+                if (Array.isArray(parsed.groupMatches)) setGroupMatches(parsed.groupMatches);
+                if (Array.isArray(parsed.bracketMatches)) setBracketMatches(parsed.bracketMatches);
+                if (['schedule', 'groups', 'bracket', 'stats'].includes(parsed.tab)) setTab(parsed.tab);
+            } catch (error) {
+                console.warn('Turnauksen välimuistin lataus epäonnistui.', error);
+            }
+        }, []);
+
+        useEffect(() => {
+            try {
+                const snapshot = {
+                    view,
+                    tab,
+                    players,
+                    groupA,
+                    groupB,
+                    groupMatches,
+                    bracketMatches,
+                };
+                localStorage.setItem(TOURNAMENT_CACHE_KEY, JSON.stringify(snapshot));
+            } catch (error) {
+                console.warn('Turnauksen välimuistiin tallennus epäonnistui.', error);
+            }
+        }, [view, tab, players, groupA, groupB, groupMatches, bracketMatches]);
 
         const shuffleGroups = () => {
             const shuffledIndices = [...Array(players.length).keys()].sort(() => Math.random() - 0.5);
@@ -450,14 +499,21 @@
                 }))
             );
 
-            setBracketMatches([
-                createMatch({ id: 'wc1', round: 'WC', p1: null, p2: null, winner: null, label: 'Wild Card 1' }),
-                createMatch({ id: 'wc2', round: 'WC', p1: null, p2: null, winner: null, label: 'Wild Card 2' }),
-                createMatch({ id: 'sf1', round: 'SF', p1: null, p2: null, winner: null, label: 'Välierä 1' }),
-                createMatch({ id: 'sf2', round: 'SF', p1: null, p2: null, winner: null, label: 'Välierä 2' }),
-                createMatch({ id: 'f', round: 'F', p1: null, p2: null, winner: null, label: 'Finaali' }),
-            ]);
+            setBracketMatches(createInitialBracketMatches());
             setView('tournament');
+            setTab('schedule');
+        };
+
+        const startNewTournament = () => {
+            setView('setup');
+            setTab('schedule');
+            setPlayers(DEFAULT_PLAYERS);
+            setGroupA(DEFAULT_GROUP_A);
+            setGroupB(DEFAULT_GROUP_B);
+            setGroupMatches([]);
+            setBracketMatches([]);
+            setActiveMatch(null);
+            localStorage.removeItem(TOURNAMENT_CACHE_KEY);
         };
 
         useEffect(() => {
@@ -621,17 +677,25 @@
                             <p className="text-[10px] font-bold text-emerald-200/70 uppercase tracking-widest">Turnaushallinta - <span className="text-emerald-50">Mökkiturnaus 27-28.2</span></p>
                         </div>
                     </div>
-                    <div className="flex gap-4">
-                        {[
-                            { id: 'schedule', label: 'Pelit' },
-                            { id: 'groups', label: 'Lohkot' },
-                            { id: 'bracket', label: 'Kaavio' },
-                            { id: 'stats', label: 'Tilastot' },
-                        ].map((t) => (
-                            <button key={t.id} onClick={() => setTab(t.id)} className={`uppercase font-black text-xs transition-all ${tab === t.id ? 'text-yellow-300 border-b-2 border-yellow-300' : 'text-emerald-200/70 hover:text-emerald-50'}`}>
-                                {t.label}
-                            </button>
-                        ))}
+                    <div className="flex items-center gap-6">
+                        <div className="flex gap-4">
+                            {[
+                                { id: 'schedule', label: 'Pelit' },
+                                { id: 'groups', label: 'Lohkot' },
+                                { id: 'bracket', label: 'Kaavio' },
+                                { id: 'stats', label: 'Tilastot' },
+                            ].map((t) => (
+                                <button key={t.id} onClick={() => setTab(t.id)} className={`uppercase font-black text-xs transition-all ${tab === t.id ? 'text-yellow-300 border-b-2 border-yellow-300' : 'text-emerald-200/70 hover:text-emerald-50'}`}>
+                                    {t.label}
+                                </button>
+                            ))}
+                        </div>
+                        <button
+                            onClick={startNewTournament}
+                            className="uppercase font-black text-xs px-3 py-2 rounded-xl border border-yellow-300/50 text-yellow-200 hover:bg-yellow-300/10 transition-all"
+                        >
+                            Aloita uusi turnaus
+                        </button>
                     </div>
                 </header>
 
