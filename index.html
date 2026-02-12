@@ -136,14 +136,56 @@
         }
 
         .winner-name-banner {
+            position: relative;
+            z-index: 2;
             animation: winnerRise 0.8s ease-out forwards;
             text-shadow: 0 10px 30px rgba(0, 0, 0, 0.55);
+        }
+
+        .tournament-prize-glow {
+            position: absolute;
+            width: min(72vw, 340px);
+            height: min(72vw, 340px);
+            border-radius: 9999px;
+            background: radial-gradient(circle, rgba(231, 227, 89, 0.3) 0%, rgba(231, 227, 89, 0.04) 55%, rgba(0, 0, 0, 0) 70%);
+            bottom: 14%;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 0;
+            pointer-events: none;
+            animation: prizeGlowPulse 2.2s ease-in-out infinite;
+        }
+
+        .tournament-prize-image {
+            position: absolute;
+            width: min(68vw, 280px);
+            max-height: 62vh;
+            object-fit: contain;
+            left: 50%;
+            bottom: 8%;
+            transform: translate(-50%, 38px) scale(0.88);
+            opacity: 0;
+            filter: drop-shadow(0 20px 28px rgba(0, 0, 0, 0.52));
+            z-index: 1;
+            pointer-events: none;
+            animation: prizeRise 1s ease-out 0.15s forwards;
         }
 
         @keyframes winnerRise {
             0% { opacity: 0; transform: translateY(20px) scale(0.8); }
             60% { opacity: 1; transform: translateY(-6px) scale(1.04); }
             100% { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        @keyframes prizeRise {
+            0% { opacity: 0; transform: translate(-50%, 38px) scale(0.88); }
+            70% { opacity: 1; transform: translate(-50%, -8px) scale(1.01); }
+            100% { opacity: 0.93; transform: translate(-50%, 0) scale(1); }
+        }
+
+        @keyframes prizeGlowPulse {
+            0%, 100% { opacity: 0.55; transform: translateX(-50%) scale(1); }
+            50% { opacity: 0.95; transform: translateX(-50%) scale(1.08); }
         }
 
         @keyframes fadeInOut {
@@ -163,6 +205,7 @@
     const STARTING_SCORE = 301;
     const LEGS_TO_WIN = 3;
     const VICTORY_MUSIC_SRC = 'assets/victory-music.mp3';
+    const TOURNAMENT_PRIZE_SRC = 'assets/tournament-prize.png';
     const TOURNAMENT_CACHE_KEY = 'teepee-darts-cup-state-v1';
     const BOGEY_NUMBERS = new Set([169, 168, 166, 165, 163, 162, 159]);
     const FAVORITE_DOUBLES = [40, 32, 24, 16, 20, 36, 12, 8, 4, 2];
@@ -855,6 +898,7 @@
         const [bust, setBust] = useState(false);
         const [winnerOfLeg, setWinnerOfLeg] = useState(null);
         const [isFinishingMatch, setIsFinishingMatch] = useState(false);
+        const [hasTournamentPrize, setHasTournamentPrize] = useState(false);
 
         const [initialStarter] = useState(() => (Math.random() < 0.5 ? 0 : 1));
         const [coinFlipLabel] = useState(() => (initialStarter === 0 ? players[match.p1] : players[match.p2]));
@@ -902,6 +946,18 @@
                 if (!victoryAudioRef.current) return;
                 victoryAudioRef.current.pause();
                 victoryAudioRef.current = null;
+            };
+        }, []);
+
+        useEffect(() => {
+            const prizeImage = new Image();
+            prizeImage.onload = () => setHasTournamentPrize(true);
+            prizeImage.onerror = () => setHasTournamentPrize(false);
+            prizeImage.src = TOURNAMENT_PRIZE_SRC;
+
+            return () => {
+                prizeImage.onload = null;
+                prizeImage.onerror = null;
             };
         }, []);
 
@@ -1135,7 +1191,13 @@
             <div className="fixed inset-0 z-50 bg-slate-950 flex flex-col font-sans">
                 {bust && <div className="absolute inset-0 z-[60] flex items-center justify-center bg-black/60"><div className="bust-overlay text-9xl font-black text-red-500 italic">BUST!</div></div>}
                 {isFinishingMatch && (
-                    <div className="absolute inset-0 z-[65] flex items-center justify-center bg-black/70">
+                    <div className="absolute inset-0 z-[65] flex items-center justify-center bg-black/70 overflow-hidden">
+                        {hasTournamentPrize && (
+                            <>
+                                <div className="tournament-prize-glow" aria-hidden="true"></div>
+                                <img src={TOURNAMENT_PRIZE_SRC} alt="Turnauspalkinto" className="tournament-prize-image" />
+                            </>
+                        )}
                         <div className="text-center px-6">
                             <div className="text-yellow-400 text-4xl md:text-6xl font-black uppercase mb-4">Ottelu voitettu!</div>
                             <div className="winner-name-banner text-white text-5xl md:text-8xl font-black uppercase tracking-wide">{players[winnerOfLeg === 0 ? match.p1 : match.p2]}</div>
