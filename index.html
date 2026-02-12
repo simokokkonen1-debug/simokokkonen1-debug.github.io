@@ -131,6 +131,24 @@
             opacity: 0.5;
         }
 
+        .bracket-champion-card {
+            min-width: 240px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 0.9rem;
+            padding: 1.1rem;
+            text-align: center;
+        }
+
+        .bracket-champion-prize {
+            width: min(32vw, 160px);
+            max-height: 220px;
+            object-fit: contain;
+            filter: drop-shadow(0 14px 22px rgba(0, 0, 0, 0.45));
+        }
+
         .bust-overlay {
             animation: fadeInOut 1s forwards;
         }
@@ -712,6 +730,13 @@
             ];
         }, [bracketMatches, playerCount]);
 
+
+        const tournamentWinnerName = useMemo(() => {
+            const finalMatch = bracketMatches.find((m) => m.round === 'F');
+            if (!finalMatch || !finalMatch.played || finalMatch.winner === null) return null;
+            return players[finalMatch.winner] ?? null;
+        }, [bracketMatches, players]);
+
         const playerStats = useMemo(() => {
             const stats = players.map((name, idx) => ({
                 name,
@@ -953,12 +978,21 @@
                                 <div key={round.key} className="bracket-round">
                                     <div className={`text-[10px] font-black uppercase text-center mb-2 ${round.isFinal ? 'text-yellow-500' : 'text-slate-600'}`}>{round.title}</div>
                                     {round.matches.map((m) => (
-                                        <div key={m.id} className={roundIdx < bracketRounds.length - 1 ? 'bracket-connector' : ''}>
+                                        <div key={m.id} className={roundIdx < bracketRounds.length - 1 || tournamentWinnerName ? 'bracket-connector' : ''}>
                                             <MatchBox m={m} players={players} onClick={() => m.p1 !== null && m.p2 !== null && setActiveMatch(m)} isFinal={Boolean(round.isFinal)} />
                                         </div>
                                     ))}
                                 </div>
                             ))}
+                            {tournamentWinnerName && (
+                                <div className="bracket-round">
+                                    <div className="text-[10px] font-black text-yellow-500 uppercase text-center mb-2">Turnausvoittaja</div>
+                                    <div className="match-card bracket-champion-card rounded-2xl border-yellow-500/40 bg-yellow-500/10">
+                                        <img src={TOURNAMENT_PRIZE_SRC} alt="Turnauspalkinto" className="bracket-champion-prize" />
+                                        <div className="text-base md:text-xl font-black uppercase text-white tracking-wide">{tournamentWinnerName}</div>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     )}
                     {tab === 'stats' && (
