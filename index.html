@@ -27,6 +27,8 @@
             background: radial-gradient(circle at top, #0f624f 0%, var(--bg-dark) 50%, #02140f 100%);
             color: #f8fafc;
             min-height: 100vh;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
         }
 
         .brand-logo {
@@ -57,6 +59,7 @@
             font-weight: bold;
             border-radius: 12px;
             height: 52px;
+            min-height: 44px;
             user-select: none;
             transition: all 0.1s;
         }
@@ -81,8 +84,8 @@
         }
 
         .dart-slot {
-            width: 100px;
-            height: 120px;
+            width: clamp(72px, 24vw, 100px);
+            height: clamp(86px, 28vw, 120px);
             border-radius: 20px;
             background: rgba(255, 255, 255, 0.03);
             border: 2px solid rgba(255, 255, 255, 0.08);
@@ -114,6 +117,15 @@
             justify-content: space-around;
             gap: 2rem;
             min-width: 240px;
+        }
+
+        .player-header-name {
+            max-width: 38vw;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            display: inline-block;
+            vertical-align: bottom;
         }
 
         .bracket-connector {
@@ -216,6 +228,44 @@
             20% { opacity: 1; transform: scale(1.1); }
             80% { opacity: 1; transform: scale(1); }
             100% { opacity: 0; transform: scale(1.2); }
+        }
+
+        @media (max-width: 768px) {
+            .bracket-container {
+                gap: 1rem;
+                padding: 0.5rem;
+            }
+
+            .bracket-round,
+            .bracket-champion-card {
+                min-width: 210px;
+            }
+
+            .bracket-connector::after {
+                right: -1rem;
+            }
+        }
+
+        @media (max-width: 640px) {
+            .dart-btn {
+                border-radius: 10px;
+                font-size: 1.05rem;
+                height: 48px;
+            }
+
+            .dart-slot {
+                border-radius: 14px;
+                border-width: 1px;
+            }
+
+            .tournament-prize-image {
+                width: min(62vw, 200px);
+            }
+
+            .tournament-prize-glow {
+                width: min(68vw, 230px);
+                height: min(68vw, 230px);
+            }
         }
     </style>
 </head>
@@ -1371,8 +1421,8 @@
         };
 
         return (
-            <div className="fixed inset-0 z-50 bg-slate-950 flex flex-col font-sans">
-                {bust && <div className="absolute inset-0 z-[60] flex items-center justify-center bg-black/60"><div className="bust-overlay text-9xl font-black text-red-500 italic">BUST!</div></div>}
+            <div className="fixed inset-0 z-50 bg-slate-950 flex flex-col font-sans overflow-y-auto overscroll-contain touch-pan-y" style={{ WebkitOverflowScrolling: 'touch' }}>
+                {bust && <div className="absolute inset-0 z-[60] flex items-center justify-center bg-black/60"><div className="bust-overlay text-6xl sm:text-9xl font-black text-red-500 italic">BUST!</div></div>}
                 {isFinishingMatch && (
                     <div className="absolute inset-0 z-[65] flex items-center justify-center bg-black/70 overflow-hidden">
                         {showTournamentPrize && (
@@ -1381,25 +1431,25 @@
                                 <img src={TOURNAMENT_PRIZE_SRC} alt="Turnauspalkinto" className="tournament-prize-image" />
                             </>
                         )}
-                        <div className="text-center px-6 relative z-[3]">
-                            <div className="relative z-[3] text-yellow-400 text-4xl md:text-6xl font-black uppercase mb-4">OTTELUN VOITTAJA!</div>
-                            <div className="winner-name-banner text-white text-5xl md:text-8xl font-black uppercase tracking-wide">{players[winnerOfLeg === 0 ? match.p1 : match.p2]}</div>
-                            <div className="relative z-[3] text-emerald-100 mt-4 uppercase tracking-[0.35em] text-xs md:text-sm">Mestari lavalla</div>
+                        <div className="text-center px-4 sm:px-6 relative z-[3]">
+                            <div className="relative z-[3] text-yellow-400 text-3xl sm:text-4xl md:text-6xl font-black uppercase mb-4">OTTELUN VOITTAJA!</div>
+                            <div className="winner-name-banner text-white text-4xl sm:text-5xl md:text-8xl font-black uppercase tracking-wide break-words">{players[winnerOfLeg === 0 ? match.p1 : match.p2]}</div>
+                            <div className="relative z-[3] text-emerald-100 mt-4 uppercase tracking-[0.2em] sm:tracking-[0.35em] text-[10px] sm:text-xs md:text-sm">Mestari lavalla</div>
                         </div>
                     </div>
                 )}
-                <div className="p-4 border-b border-white/5 flex justify-between items-center bg-slate-900 shadow-xl">
+                <div className="p-3 sm:p-4 border-b border-white/5 flex justify-between items-center bg-slate-900 shadow-xl gap-2">
                     <button onClick={onClose} className="text-slate-400 font-black uppercase text-[10px] hover:text-white transition-all">Lopeta</button>
-                    <div className="text-center font-oswald uppercase font-black italic text-xl">
-                        {players[match.p1]} <span className="text-yellow-500 mx-3">{legs[0]} - {legs[1]}</span> {players[match.p2]}
+                    <div className="text-center font-oswald uppercase font-black italic text-sm sm:text-xl leading-tight min-w-0">
+                        <span className="player-header-name">{players[match.p1]}</span> <span className="text-yellow-500 mx-1 sm:mx-3">{legs[0]} - {legs[1]}</span> <span className="player-header-name">{players[match.p2]}</span>
                         <div className="text-[10px] tracking-widest text-slate-400 not-italic mt-1">Aloitusvuoro arvottu: {coinFlipLabel}</div>
                     </div>
-                    <div className="w-10"></div>
+                    <div className="w-6 sm:w-10"></div>
                 </div>
-                <div className="flex-1 flex flex-col p-4 gap-4 max-w-4xl mx-auto w-full">
+                <div className="flex-1 flex flex-col p-3 sm:p-4 gap-3 sm:gap-4 max-w-4xl mx-auto w-full min-h-[100svh]">
                     <div className="grid grid-cols-2 gap-4">
-                        <div className={`p-6 rounded-3xl border-4 ${turn === 0 ? 'border-yellow-500 bg-yellow-500/10' : 'border-white/5 opacity-30'}`}><div className="text-7xl font-mono font-black text-center">{p1Score}</div></div>
-                        <div className={`p-6 rounded-3xl border-4 ${turn === 1 ? 'border-yellow-500 bg-yellow-500/10' : 'border-white/5 opacity-30'}`}><div className="text-7xl font-mono font-black text-center">{p2Score}</div></div>
+                        <div className={`p-3 sm:p-6 rounded-2xl sm:rounded-3xl border-2 sm:border-4 ${turn === 0 ? 'border-yellow-500 bg-yellow-500/10' : 'border-white/5 opacity-30'}`}><div className="text-4xl sm:text-7xl font-mono font-black text-center">{p1Score}</div></div>
+                        <div className={`p-3 sm:p-6 rounded-2xl sm:rounded-3xl border-2 sm:border-4 ${turn === 1 ? 'border-yellow-500 bg-yellow-500/10' : 'border-white/5 opacity-30'}`}><div className="text-4xl sm:text-7xl font-mono font-black text-center">{p2Score}</div></div>
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                         <button
@@ -1457,18 +1507,18 @@
                             </div>
                         </div>
                     )}
-                    <div className="flex-1 flex flex-col items-center justify-center gap-4 bg-white/5 rounded-3xl border border-white/10">
+                    <div className="flex-none sm:flex-1 flex flex-col items-center justify-center gap-3 sm:gap-4 bg-white/5 rounded-2xl sm:rounded-3xl border border-white/10 p-2 sm:p-0 min-h-[120px]">
                         {winnerOfLeg !== null ? (
                             <div className="text-center animate-bounce">
-                                <div className="text-yellow-500 text-4xl font-black mb-4 uppercase">LEG VOITETTU!</div>
-                                <button onClick={confirmLeg} disabled={isFinishingMatch} className={`bg-green-600 px-8 py-4 rounded-2xl font-black uppercase text-xl ${isFinishingMatch ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                                <div className="text-yellow-500 text-3xl sm:text-4xl font-black mb-4 uppercase">LEG VOITETTU!</div>
+                                <button onClick={confirmLeg} disabled={isFinishingMatch} className={`bg-green-600 px-6 sm:px-8 py-3 sm:py-4 rounded-2xl font-black uppercase text-base sm:text-xl ${isFinishingMatch ? 'opacity-50 cursor-not-allowed' : ''}`}>
                                     {isFinishingMatch ? 'Päätetään ottelua...' : 'Jatka peliä'}
                                 </button>
                             </div>
                         ) : (
-                            <div className="flex gap-4">
+                            <div className="flex gap-2 sm:gap-4">
                                 {currentDarts.map((d, i) => (
-                                    <div key={i} className={`dart-slot ${dartInTurn === i ? 'active' : ''}`}><span className="text-3xl font-black text-white">{d !== null ? d : ''}</span></div>
+                                    <div key={i} className={`dart-slot ${dartInTurn === i ? 'active' : ''}`}><span className="text-2xl sm:text-3xl font-black text-white">{d !== null ? d : ''}</span></div>
                                 ))}
                             </div>
                         )}
