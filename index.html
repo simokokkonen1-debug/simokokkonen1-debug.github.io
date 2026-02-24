@@ -348,6 +348,57 @@
         };
     };
 
+    const createRoundRobinRounds = (group, label) => {
+        if (!Array.isArray(group) || group.length < 2) return [];
+
+        const hasOddPlayers = group.length % 2 !== 0;
+        const bye = null;
+        const rotation = hasOddPlayers ? [...group, bye] : [...group];
+        const rounds = [];
+        const roundCount = rotation.length - 1;
+        const half = rotation.length / 2;
+
+        for (let round = 0; round < roundCount; round++) {
+            const matches = [];
+            for (let i = 0; i < half; i++) {
+                const p1 = rotation[i];
+                const p2 = rotation[rotation.length - 1 - i];
+                if (p1 !== bye && p2 !== bye) {
+                    matches.push(createMatch({ group: label, p1, p2 }));
+                }
+            }
+            rounds.push(matches);
+
+            const fixed = rotation[0];
+            const moving = rotation.slice(1);
+            moving.unshift(moving.pop());
+            rotation.splice(0, rotation.length, fixed, ...moving);
+        }
+
+        return rounds;
+    };
+
+    const createBalancedSchedule = (groupA, groupB) => {
+        const roundsA = createRoundRobinRounds(groupA, 'A');
+        const roundsB = createRoundRobinRounds(groupB, 'B');
+        const totalRounds = Math.max(roundsA.length, roundsB.length);
+        const orderedMatches = [];
+
+        for (let round = 0; round < totalRounds; round++) {
+            const openWithA = round % 2 === 0;
+            const firstRound = openWithA ? roundsA[round] : roundsB[round];
+            const secondRound = openWithA ? roundsB[round] : roundsA[round];
+
+            if (firstRound) orderedMatches.push(...firstRound);
+            if (secondRound) orderedMatches.push(...secondRound);
+        }
+
+        return orderedMatches.map((m, i) => ({
+            ...m,
+            id: `m-${i}`,
+        }));
+    };
+
     const scoreLabel = (value) => {
         if (value === 50) return 'BULL';
         if (value === 25) return '25';
@@ -705,25 +756,10 @@
         };
 
         const startTournament = () => {
-            const createMatches = (group, label) => {
-                const m = [];
-                for (let i = 0; i < group.length; i++) {
-                    for (let j = i + 1; j < group.length; j++) {
-                        m.push(createMatch({ group: label, p1: group[i], p2: group[j] }));
-                    }
-                }
-                return m;
-            };
-
             const seededPlayers = [...Array(playerCount).keys()].sort(() => Math.random() - 0.5);
 
             if (hasGroups) {
-                setGroupMatches(
-                    [...createMatches(groupA, 'A'), ...createMatches(groupB, 'B')].map((m, i) => ({
-                        ...m,
-                        id: `m-${i}`,
-                    }))
-                );
+                setGroupMatches(createBalancedSchedule(groupA, groupB));
                 setBracketMatches(createInitialBracketMatches(playerCount, seededPlayers));
             } else {
                 setGroupMatches([]);
