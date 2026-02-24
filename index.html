@@ -1147,6 +1147,7 @@
 
     function DartsCalculator({ match, players, onClose, onSave }) {
         const victoryAudioRef = useRef(null);
+        const scoreAnnouncementAudioRef = useRef(null);
         const confettiRainRef = useRef(null);
         const celebrationTimeoutRef = useRef(null);
         const [p1Score, setP1Score] = useState(STARTING_SCORE);
@@ -1208,9 +1209,14 @@
                     clearTimeout(celebrationTimeoutRef.current);
                     celebrationTimeoutRef.current = null;
                 }
-                if (!victoryAudioRef.current) return;
-                victoryAudioRef.current.pause();
-                victoryAudioRef.current = null;
+                if (victoryAudioRef.current) {
+                    victoryAudioRef.current.pause();
+                    victoryAudioRef.current = null;
+                }
+                if (scoreAnnouncementAudioRef.current) {
+                    scoreAnnouncementAudioRef.current.pause();
+                    scoreAnnouncementAudioRef.current = null;
+                }
             };
         }, []);
 
@@ -1244,6 +1250,22 @@
             });
 
             return audio;
+        };
+
+        const playScoreAnnouncement = (turnScore) => {
+            if (!Number.isInteger(turnScore) || turnScore < 0 || turnScore > 180) return;
+
+            if (scoreAnnouncementAudioRef.current) {
+                scoreAnnouncementAudioRef.current.pause();
+                scoreAnnouncementAudioRef.current = null;
+            }
+
+            const audio = new Audio(`assets/${turnScore}.wav`);
+            audio.preload = 'auto';
+            audio.play().catch(() => {
+                // Pistemäärän kuulutus voi puuttua tai autoplay-rajoitukset estävät toiston.
+            });
+            scoreAnnouncementAudioRef.current = audio;
         };
 
         const launchConfettiRain = () => {
@@ -1393,6 +1415,7 @@
             pushStep(snapshot);
 
             if (dartInTurn === 2) {
+                playScoreAnnouncement(newDarts.reduce((sum, dartScore) => sum + (dartScore ?? 0), 0));
                 setTimeout(() => {
                     setHistory((prev) => [...prev, { player: currentPlayerIdx, darts: newDarts, dartEvents: newDartEvents, isCheckout: false }]);
                     setTurn(turn === 0 ? 1 : 0);
