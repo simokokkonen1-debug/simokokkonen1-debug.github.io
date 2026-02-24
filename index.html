@@ -831,6 +831,7 @@
             const stats = players.map((name, idx) => ({
                 name,
                 idx,
+                matchesPlayed: 0,
                 totalScore: 0,
                 dartsCount: 0,
                 bestCheckout: 0,
@@ -843,6 +844,17 @@
             }));
 
             [...groupMatches, ...bracketMatches].forEach((m) => {
+                if (m.played) {
+                    if (m.p1 !== null) {
+                        const p1Stats = stats.find((s) => s.idx === m.p1);
+                        if (p1Stats) p1Stats.matchesPlayed++;
+                    }
+                    if (m.p2 !== null) {
+                        const p2Stats = stats.find((s) => s.idx === m.p2);
+                        if (p2Stats) p2Stats.matchesPlayed++;
+                    }
+                }
+
                 if (!m.history) return;
 
                 m.history.forEach((turnData) => {
@@ -1087,11 +1099,12 @@
                     )}
                     {tab === 'stats' && (
                         <div className="bg-slate-900/40 rounded-3xl p-6 border border-white/5 overflow-x-auto">
-                            <h3 className="text-xl font-black uppercase text-yellow-500 mb-6 italic">Turnaustilastot</h3>
-                            <table className="w-full text-left text-[10px] uppercase font-bold">
+                            <h3 className="text-2xl font-black uppercase text-yellow-500 mb-6 italic">Turnaustilastot</h3>
+                            <table className="w-full text-left text-xs uppercase font-bold">
                                 <thead className="text-slate-500 border-b border-white/10">
                                 <tr>
                                     <th className="pb-3">Pelaaja</th>
+                                    <th className="pb-3 text-center">Pelatut</th>
                                     <th className="pb-3 text-center">Avg (3t)</th>
                                     <th className="pb-3 text-center">Paras vuoro</th>
                                     <th className="pb-3 text-center">Paras checkout</th>
@@ -1106,6 +1119,7 @@
                                 {playerStats.map((s, i) => (
                                     <tr key={i} className="border-t border-white/5">
                                         <td className="py-4 text-sm font-black">{s.name}</td>
+                                        <td className="py-4 text-center text-white">{s.matchesPlayed}</td>
                                         <td className="py-4 text-center text-yellow-500 text-lg">{s.avg.toFixed(1)}</td>
                                         <td className="py-4 text-center text-white">{s.bestTurn || '-'}</td>
                                         <td className="py-4 text-center text-white">{s.bestCheckout || '-'}</td>
