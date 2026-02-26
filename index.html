@@ -1587,7 +1587,7 @@
                         <button
                             onClick={() => handleForfeit(0)}
                             disabled={isFinishingMatch}
-                            className={`dart-btn h-8 sm:h-9 text-[10px] sm:text-[11px] uppercase tracking-wide sm:justify-self-start sm:px-3 ${isFinishingMatch ? 'opacity-40 cursor-not-allowed' : 'text-red-300 border-red-500/30 bg-red-500/10 hover:bg-red-500/20'}`}
+                            className={`dart-btn h-8 sm:h-9 text-[10px] sm:text-[11px] uppercase tracking-wide sm:justify-self-end sm:px-3 ${isFinishingMatch ? 'opacity-40 cursor-not-allowed' : 'text-red-300 border-red-500/30 bg-red-500/10 hover:bg-red-500/20'}`}
                         >
                             {players[match.p1]} luovuttaa
                         </button>
@@ -1595,7 +1595,7 @@
                         <button
                             onClick={() => handleForfeit(1)}
                             disabled={isFinishingMatch}
-                            className={`dart-btn h-8 sm:h-9 text-[10px] sm:text-[11px] uppercase tracking-wide sm:justify-self-end sm:px-3 ${isFinishingMatch ? 'opacity-40 cursor-not-allowed' : 'text-red-300 border-red-500/30 bg-red-500/10 hover:bg-red-500/20'}`}
+                            className={`dart-btn h-8 sm:h-9 text-[10px] sm:text-[11px] uppercase tracking-wide sm:justify-self-start sm:px-3 ${isFinishingMatch ? 'opacity-40 cursor-not-allowed' : 'text-red-300 border-red-500/30 bg-red-500/10 hover:bg-red-500/20'}`}
                         >
                             {players[match.p2]} luovuttaa
                         </button>
@@ -1646,7 +1646,7 @@
                             </div>
                         </div>
                     )}
-                    <div className="flex-none sm:flex-1 flex flex-col items-center justify-center gap-3 sm:gap-4 bg-white/5 rounded-2xl sm:rounded-3xl border border-white/10 p-2 sm:p-0 min-h-[120px]">
+                    <div className="flex-none flex flex-col items-center justify-center gap-3 sm:gap-4 bg-white/5 rounded-2xl sm:rounded-3xl border border-white/10 p-2 sm:p-3 min-h-[104px] sm:min-h-[136px]">
                         {winnerOfLeg !== null ? (
                             <div className="text-center animate-bounce">
                                 <div className="text-yellow-500 text-3xl sm:text-4xl font-black mb-4 uppercase">LEG VOITETTU!</div>
